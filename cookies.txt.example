@@ -1,0 +1,15 @@
+# Copy this file to cookies.txt and paste your HackTheBox Academy session cookie.
+#
+# How to get it:
+#   1. Log into https://academy.hackthebox.com in your browser.
+#   2. Open DevTools (F12) -> Application (or Storage) -> Cookies
+#      -> https://academy.hackthebox.com
+#   3. Copy the value of the `htb_academy_session` cookie. The XSRF-TOKEN
+#      cookie is helpful too.
+#   4. Paste the full Cookie header below as a SINGLE line, e.g.:
+#
+#          htb_academy_session=eyJpdiI6...; XSRF-TOKEN=eyJpdiI6...
+#
+# This file is gitignored — it will never be committed.
+
+htb_academy_session=PASTE_VALUE_HERE; XSRF-TOKEN=PASTE_VALUE_HERE
