@@ -38,6 +38,28 @@ Requires Python 3.9+ (uses `from __future__ import annotations`).
 Programmatic login is blocked by reCAPTCHA / 2FA, so we reuse your logged-in
 session cookie — the same approach used by other open-source HTB tools.
 
+### Option A — auto-grab from your browser (easiest)
+
+If you use a **Firefox-based browser** (Floorp, Firefox, LibreWolf, Zen, or
+Waterfox) and you're already logged in to HTB Academy, just run the scraper
+with no cookie at all — it will find the session in your browser profile
+automatically:
+
+```bash
+python htb_scraper.py 293        # auto-grabs cookie on first run
+```
+
+The grabbed cookie is cached to `cookies.txt`, so subsequent runs are instant.
+To force a refresh (e.g. after the session expires):
+
+```bash
+python htb_scraper.py 293 --reload-cookie
+```
+
+This needs the optional `browser_cookie3` dependency (`pip install -r requirements.txt`).
+
+### Option B — manual
+
 1. Log into <https://academy.hackthebox.com> in your browser.
 2. Open DevTools (**F12**) → **Application** (or **Storage**) → **Cookies** →
    `https://academy.hackthebox.com`.
@@ -68,6 +90,9 @@ python htb_scraper.py 293 --output ./notes
 
 # Dry run — auth check + section list, no files written
 python htb_scraper.py 293 --dry-run
+
+# Re-grab cookie from browser (after session expires)
+python htb_scraper.py 293 --reload-cookie
 ```
 
 ### Flags
@@ -76,9 +101,12 @@ python htb_scraper.py 293 --dry-run
 | --- | --- |
 | `--cookie "..."` | Inline `Cookie:` header string. |
 | `--cookie-file PATH` | File containing the cookie header (default `./cookies.txt`). |
+| `--reload-cookie` | Re-grab the cookie from your browser, overwriting `cookies.txt`. |
 | `--output DIR` | Output directory (default `./output`). |
 | `--timeout N` | Per-request HTTP timeout in seconds (default `30`). |
 | `--dry-run` | Fetch metadata + section list only; write nothing. |
+| `--debug-json` | Dump raw module+section JSON to stdout (for inspecting API fields). |
+| `--no-walkthrough` | Skip downloading the module's "Show solution" walkthrough. |
 | `--no-jitter` | Disable the inter-section sleep (faster, less polite). |
 | `--quiet` | Less verbose output. |
 

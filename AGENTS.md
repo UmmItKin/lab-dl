@@ -18,8 +18,9 @@ redistribute exported content.
 htb_scraper.py   # CLI entry + orchestration (argparse, run()). Run this directly.
 htb_api.py       # HTBClient: the 4 API endpoints, headers, {"data":…} unwrapping, auth errors
 converter.py     # content cleanup + HTML-fragment→Markdown + image download (CDN fallback)
-requirements.txt # requests (stdlib-only otherwise; html2text was removed — do not re-add)
-cookies.txt      # USER SECRET — gitignored. Raw Cookie: header. See cookies.txt.example.
+cookiejar.py     # auto-grab htb_academy_session from a local Firefox-based browser profile
+requirements.txt # requests + browser_cookie3 (the latter is optional but enables auto-grab)
+cookies.txt      # USER SECRET — gitignored. Raw Cookie: header. Auto-written by the browser grab.
 output/          # exported modules — gitignored
 ```
 
@@ -29,11 +30,12 @@ output/          # exported modules — gitignored
 source .venv/bin/activate                 # PEP-668 Arch env; never pip install system-wide
 pip install -r requirements.txt
 python htb_scraper.py 293 --dry-run       # auth + section list, writes no files (first check)
-python htb_scraper.py 293                 # full download
+python htb_scraper.py 293                 # full download (auto-grabs cookie if no cookies.txt)
+python htb_scraper.py 293 --reload-cookie # re-grab cookie from browser, overwrite cookies.txt
 python htb_scraper.py 23 --debug-json     # dump raw API JSON to find field names (e.g. walkthrough_id)
 python htb_scraper.py 23 --no-walkthrough # sections only, skip the "Show solution" walkthrough
 python htb_scraper.py <id|url> --cookie "..." --output ./notes
-python -m py_compile htb_api.py converter.py htb_scraper.py   # syntax check
+python -m py_compile htb_api.py converter.py cookiejar.py htb_scraper.py   # syntax check
 ```
 
 Python 3.9+ (`from __future__ import annotations` is used).
@@ -48,10 +50,14 @@ Python 3.9+ (`from __future__ import annotations` is used).
 - **`converter.py` never imports `htb_scraper`.** It's pure: string in → string
   out, plus image downloads (which take a `requests.Session` + cookie arg). Keep
   it import-cycle-free.
-- **`htb_scraper.py` orchestrates**: loads cookie → fetches metadata → checks
-  the locked-content guard → per section: convert, rewrite images, write file →
-  (optional) fetch walkthrough, convert, write as `NN-Walkthrough.md` → write
-  module README.
+- **`cookiejar.py` never imports `htb_scraper`.** It only reads the browser's
+  cookies.sqlite (via browser_cookie3) and returns a cookie header string. It's
+  imported lazily inside `_grab_and_cache` so the browser_cookie3 dependency is
+  optional — `--cookie`/cookies.txt still work without it.
+- **`htb_scraper.py` orchestrates**: loads cookie (file, flag, or browser grab)
+  → fetches metadata → checks the locked-content guard → per section: convert,
+  rewrite images, write file → (optional) fetch walkthrough, convert, write as
+  `NN-Walkthrough.md` → write module README.
 
 ## Critical conventions
 
@@ -85,6 +91,18 @@ Python 3.9+ (`from __future__ import annotations` is used).
   up defensively (`info.get("walkthrough_id")`) and silently skips if absent.
   If a module has a walkthrough but the field name differs, run `--debug-json`
   to inspect the raw module response and fix the lookup.
+- **Cookie auto-grab** (`cookiejar.py`): when no `cookies.txt` exists (or
+  `--reload-cookie` is passed), the scraper scans every Firefox-based browser
+  profile (`~/.floorp`, `~/.mozilla/firefox`, `~/.librewolf`, `~/.zen`,
+  `~/.waterfox` + macOS/Windows equivalents) and reads `htb_academy_session`
+  from whichever profile is actually logged in. **Do NOT trust profiles.ini's
+  `Default=1`** — it often points at a profile the user isn't actively using;
+  scan all profiles and pick the one holding the cookie. Firefox-based browsers
+  store cookie values in plaintext (no key4.db decryption needed); Chromium
+  support would require decryption and is intentionally out of scope. The
+  grabbed cookie is cached to `cookies.txt` so subsequent runs skip the scan.
+  `browser_cookie3` is imported lazily so the feature degrades gracefully if
+  the package isn't installed.
 
 ## Security / secrets
 
@@ -92,6 +110,10 @@ Python 3.9+ (`from __future__ import annotations` is used).
   cookie value** — when debugging, log only length/prefix-truncated.
 - The cookie loader (`load_cookie`) intentionally skips `#` comment lines and
   non-ASCII text (requests encodes headers as latin-1). Keep that guard.
+- The browser auto-grab reads cookies directly from the user's own browser
+  profile on their own machine — it never transmits cookies anywhere except to
+  `academy.hackthebox.com` (the site they're already logged in to). The grabbed
+  value is written to the gitignored `cookies.txt`.
 - Locked-content guard: if `is_unlocked == false` and `progress == 0`, refuse to
   proceed (avoids an accidental cube spend). Don't remove it.
 
