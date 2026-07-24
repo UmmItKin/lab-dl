@@ -22,3 +22,7 @@ env/
 .idea/
 .DS_Store
 *.swp
+
+# Tooling artifacts
+.codegraph/
+.zcode/
