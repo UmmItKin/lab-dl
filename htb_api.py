@@ -93,6 +93,12 @@ class HTBClient:
             f"/api/v2/modules/{module_id}/sections/{section_id}"
         )
 
+    def get_walkthrough(self, walkthrough_id: int) -> dict:
+        """Fetch a module's skill-assessment walkthrough (the 'Show solution'
+        content). Returns the data dict with at least: id, module_id,
+        instructions (Markdown)."""
+        return self._get(f"/api/v2/walkthroughs/{walkthrough_id}")
+
     # -- internals ----------------------------------------------------------
 
     def _get(self, path: str) -> dict | list:

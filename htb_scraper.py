@@ -19,6 +19,7 @@ This tool is for personal study only. Do not redistribute HTB Academy content.
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 import time
@@ -143,7 +144,12 @@ def _first_string(value) -> str:
     return ""
 
 
-def build_readme(module_id: int, info: dict, sections: list[dict]) -> str:
+def build_readme(
+    module_id: int,
+    info: dict,
+    sections: list[dict],
+    walkthrough_fname: str | None = None,
+) -> str:
     name = info.get("name", f"Module {module_id}")
     difficulty = (info.get("difficulty") or {}).get("title", "—")
     tier = (info.get("tier") or {}).get("name", "—")
@@ -177,6 +183,11 @@ def build_readme(module_id: int, info: dict, sections: list[dict]) -> str:
         fname = _section_filename(s["num"], s["title"])
         type_tag = f" _({s.get('type', '')})_" if s.get("type") else ""
         lines.append(f"{s['num']}. [{s['title']}]({fname}){type_tag}")
+    if walkthrough_fname:
+        wt_num = len(sections) + 1
+        lines.append(
+            f"{wt_num}. [Walkthrough (Show Solution)]({walkthrough_fname}) _(walkthrough)_"
+        )
     lines.append("")
 
     takeaways = info.get("takeaways") or []
@@ -239,6 +250,32 @@ def build_section_md(
     return "\n".join(frontmatter) + content_md + questions_md
 
 
+def build_walkthrough_md(
+    walkthrough_id: int,
+    module_id: int,
+    info: dict,
+    content_md: str,
+) -> str:
+    """Assemble the walkthrough ('Show solution') markdown file."""
+    name = info.get("name", f"Module {module_id}")
+    frontmatter = [
+        "---",
+        f"module: {json_quote(name)}",
+        f"module_id: {module_id}",
+        f"walkthrough_id: {walkthrough_id}",
+        "type: walkthrough",
+        f"url: https://academy.hackthebox.com/api/v2/walkthroughs/{walkthrough_id}",
+        "---",
+        "",
+        f"# Walkthrough — {name}",
+        "",
+        "> Module skill-assessment walkthrough (the \"Show solution\" content).",
+        "",
+        "",
+    ]
+    return "\n".join(frontmatter) + content_md
+
+
 def json_quote(s: str) -> str:
     """YAML-safe quoting for frontmatter values."""
     s = "" if s is None else str(s)
@@ -292,6 +329,24 @@ def run(args: argparse.Namespace) -> int:
 
     name = info.get("name", f"Module {module_id}")
     print(f"  • {name}")
+
+    # --debug-json: dump raw API responses so we can discover field names
+    # (e.g. walkthrough_id) without guessing. Writes nothing.
+    if args.debug_json:
+        print("=== module response (first 8000 chars) ===")
+        print(json.dumps(info, indent=2, ensure_ascii=False)[:8000])
+        try:
+            sections_preview = client.get_sections(module_id)
+            if sections_preview:
+                first = sections_preview[0]
+                content = client.get_section_content(module_id, first["id"])
+                print(f"\n=== first section ({first['title']!r}) response (first 4000 chars) ===")
+                print(json.dumps(content, indent=2, ensure_ascii=False)[:4000])
+        except (HTBAPIError, requests.RequestException) as e:
+            print(f"\n(section preview failed: {e})", file=sys.stderr)
+        print("\n--debug-json: look for a 'walkthrough_id' / 'walkthrough' "
+              "field above. No files written.")
+        return 0
 
     # Locked-content guard: don't accidentally spend cubes.
     is_unlocked = info.get("is_unlocked", True)
@@ -366,8 +421,43 @@ def run(args: argparse.Namespace) -> int:
         if not args.no_jitter:
             time.sleep(1.5)
 
+    # Walkthrough (Show solution) — optional, one per module. Written as a
+    # standalone file numbered after the last section (e.g. 25-Walkthrough.md).
+    # The walkthrough_id field location in the API response isn't confirmed, so
+    # we look it up defensively and skip silently if absent. Use --debug-json
+    # to inspect the raw module response and find the correct field name.
+    walkthrough_fname: str | None = None
+    if not args.no_walkthrough:
+        wid = info.get("walkthrough_id")
+        if not wid:
+            print("\n→ No walkthrough_id found on module (module may have no "
+                  "skill assessment, or the field has a different name). "
+                  "Skipping. Run with --debug-json to inspect available fields.")
+        else:
+            print(f"\n→ Fetching walkthrough {wid}…")
+            try:
+                wd = client.get_walkthrough(int(wid))
+                raw_w = (wd or {}).get("instructions", "") or ""
+            except HTBNotFoundError:
+                print(f"  ! walkthrough {wid} returned 404; skipping.", file=sys.stderr)
+                raw_w = ""
+            except (HTBAPIError, requests.RequestException) as e:
+                print(f"  ! failed to fetch walkthrough: {e}", file=sys.stderr)
+                raw_w = ""
+
+            if raw_w.strip():
+                md_w = content_to_markdown(raw_w)
+                md_w = rewrite_images(md_w, assets_dir, http, cookie, quiet=args.quiet)
+                section_md_w = build_walkthrough_md(int(wid), module_id, info, md_w)
+                wt_num = len(sections) + 1
+                walkthrough_fname = _section_filename(wt_num, "Walkthrough")
+                dest_w = module_dir / walkthrough_fname
+                dest_w.write_text(section_md_w, encoding="utf-8")
+                written.append(dest_w)
+                print(f"  ✓ wrote {dest_w.relative_to(out_root)}")
+
     # Module-level README with TOC.
-    readme = build_readme(module_id, info, sections)
+    readme = build_readme(module_id, info, sections, walkthrough_fname)
     readme_path = module_dir / "README.md"
     readme_path.write_text(readme, encoding="utf-8")
     written.append(readme_path)
@@ -419,6 +509,16 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--dry-run", action="store_true",
         help="Fetch module metadata + section list only; write no files.",
+    )
+    p.add_argument(
+        "--debug-json", action="store_true",
+        help="Dump raw module + first-section JSON to stdout and exit. Used "
+             "to inspect API fields (e.g. finding walkthrough_id). No files written.",
+    )
+    p.add_argument(
+        "--no-walkthrough", action="store_true",
+        help="Skip downloading the module's skill-assessment walkthrough "
+             "(the 'Show solution' content).",
     )
     p.add_argument(
         "--no-jitter", action="store_true",
