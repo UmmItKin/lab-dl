@@ -58,17 +58,29 @@ def parse_target(arg: str) -> tuple[int, int | None]:
 
 
 def load_cookie(args: argparse.Namespace) -> str:
-    """Resolve the cookie header string from CLI flags or cookies.txt."""
+    """Resolve the cookie header string.
+
+    Priority: --cookie > cookies.txt > auto-grab from a local Firefox-based
+    browser (Floorp/Firefox/LibreWolf/Zen/Waterfox). The auto-grab writes its
+    result to cookies.txt so subsequent runs skip the (slower) browser scan.
+    --reload-cookie forces a fresh browser grab and overwrites cookies.txt.
+    """
     if args.cookie:
         return args.cookie.strip()
 
     cookie_file = Path(args.cookie_file) if args.cookie_file else Path("cookies.txt")
+
+    # --reload-cookie: always re-grab from the browser, overwriting the file.
+    if getattr(args, "reload_cookie", False):
+        return _grab_and_cache(cookie_file)
+
     if not cookie_file.exists():
-        raise SystemExit(
-            f"Cookie file not found: {cookie_file}\n"
-            "Either pass --cookie '...' / --cookie-file PATH, or create "
-            "./cookies.txt (see cookies.txt.example)."
-        )
+        # No cookie file and no --cookie: fall back to the browser auto-grab.
+        # This is the common case — the user is logged in to HTB Academy in
+        # their browser and just wants the scraper to use that session.
+        print(f"→ No {cookie_file} found. Auto-grabbing from your browser…")
+        return _grab_and_cache(cookie_file)
+
     raw = cookie_file.read_text(encoding="utf-8")
 
     # The cookie value must be ASCII-safe (requests encodes headers as latin-1),
@@ -89,7 +101,8 @@ def load_cookie(args: argparse.Namespace) -> str:
     if not cookie:
         raise SystemExit(
             f"{cookie_file} has no cookie data (only comments/blank lines). "
-            "Paste your htb_academy_session cookie on its own line."
+            "Paste your htb_academy_session cookie on its own line, or delete "
+            "the file to auto-grab from your browser."
         )
     if "PASTE_VALUE_HERE" in cookie:
         raise SystemExit(
@@ -99,7 +112,8 @@ def load_cookie(args: argparse.Namespace) -> str:
     if "htb_academy_session=" not in cookie:
         raise SystemExit(
             f"{cookie_file} doesn't contain 'htb_academy_session='. "
-            "Make sure you copied that cookie from DevTools."
+            "Make sure you copied that cookie from DevTools, or delete the "
+            "file to auto-grab from your browser."
         )
     try:
         cookie.encode("latin-1")
@@ -107,6 +121,18 @@ def load_cookie(args: argparse.Namespace) -> str:
         # Last-resort guard: strip any remaining non-ASCII so the request can't
         # blow up with a codec error.
         cookie = cookie.encode("ascii", "ignore").decode("ascii")
+    return cookie
+
+
+def _grab_and_cache(cookie_file: Path) -> str:
+    """Auto-grab the HTB cookie from the browser and persist it to cookie_file
+    so later runs don't need to re-scan. Returns the cookie header string."""
+    import cookiejar
+
+    cookie = cookiejar.grab_htb_cookie()
+    cookiejar.save_to_cookie_file(cookie, cookie_file)
+    print(f"  ✓ saved to {cookie_file} (next run will reuse it; pass "
+          f"--reload-cookie to refresh)")
     return cookie
 
 
@@ -497,6 +523,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--cookie-file", default=None,
         help="Path to a file containing the Cookie header (default: ./cookies.txt).",
+    )
+    p.add_argument(
+        "--reload-cookie", action="store_true",
+        help="Re-grab the HTB session cookie from your browser (Floorp/Firefox/"
+             "LibreWolf/Zen/Waterfox) and overwrite cookies.txt. Use this when "
+             "the cached cookie has expired.",
     )
     p.add_argument(
         "--output", default="output",

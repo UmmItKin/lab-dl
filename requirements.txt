@@ -1,1 +1,5 @@
 requests>=2.31.0
+# Optional but recommended: enables auto-grabbing cookies from your browser
+# (Floorp/Firefox/LibreWolf/Zen/Waterfox) so you don't need to maintain
+# cookies.txt by hand. If absent, --cookie/cookies.txt still work.
+browser_cookie3>=0.16.2
