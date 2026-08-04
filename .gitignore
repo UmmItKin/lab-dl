@@ -1,5 +1,6 @@
 # Secrets — NEVER commit your cookies
 cookies.txt
+cookies-thm.txt
 .env
 *.session
 

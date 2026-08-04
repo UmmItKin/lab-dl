@@ -3,3 +3,8 @@ requests>=2.31.0
 # (Floorp/Firefox/LibreWolf/Zen/Waterfox) so you don't need to maintain
 # cookies.txt by hand. If absent, --cookie/cookies.txt still work.
 browser_cookie3>=0.16.2
+
+# TryHackMe rooms only — their task HTML is standard, so bs4+markdownify
+# replace the hand-rolled converter.py regex pipeline used for HTB.
+beautifulsoup4>=4.12.0
+markdownify>=0.13.0

@@ -108,12 +108,21 @@ def _load_from_db(cookie_db: str, domain: str):
     ).load()
 
 
-def grab_htb_cookie(verbose: bool = True) -> str:
+def grab_cookie(
+    cookie_name: str,
+    domain: str,
+    label: str = "the site",
+    login_url: str = "",
+    verbose: bool = True,
+) -> str:
     """Scan local Firefox-based browser profiles and return the
-    `htb_academy_session=...` cookie header string.
+    `<cookie_name>=<value>` header string for the given domain.
+
+    `label` and `login_url` are used only to build helpful error messages
+    (e.g. label="HTB Academy", login_url="https://academy.hackthebox.com").
 
     Raises SystemExit with a helpful message if browser_cookie3 is missing,
-    no browser profile is found, or no profile is logged in to HTB Academy.
+    no browser profile is found, or no profile is logged in to the target site.
     """
     try:
         import browser_cookie3  # noqa: F401
@@ -132,33 +141,72 @@ def grab_htb_cookie(verbose: bool = True) -> str:
             + ", ".join(_platform_dirs())
             + ").\n"
             "Either install Floorp/Firefox/LibreWolf/Zen/Waterfox and log in to "
-            "HTB Academy, or pass --cookie '...' / create cookies.txt manually."
+            f"{label}, or pass --cookie '...' / create cookies.txt manually."
         )
     if verbose:
-        print(f"→ Scanning {len(dbs)} browser profile(s) for an HTB Academy session…")
+        print(f"→ Scanning {len(dbs)} browser profile(s) for a {label} session…")
 
     last_error: Exception | None = None
     for db in dbs:
         try:
-            cj = _load_from_db(db, TARGET_DOMAIN)
+            cj = _load_from_db(db, domain)
         except Exception as e:  # profile locked / corrupt / unreadable
             last_error = e
             continue
         for c in cj:
-            if c.name == TARGET_COOKIE_NAME:
+            if c.name == cookie_name:
                 if verbose:
                     profile = _profile_label(db)
-                    print(f"  ✓ found {TARGET_COOKIE_NAME} in {profile}")
-                return f"{TARGET_COOKIE_NAME}={c.value}"
+                    print(f"  ✓ found {cookie_name} in {profile}")
+                return f"{cookie_name}={c.value}"
 
     # Scanned every profile, none had the cookie.
+    login_hint = f"Make sure you're logged in to {login_url} in your " if login_url else ""
     raise SystemExit(
-        "No HTB Academy session found in any scanned browser profile.\n"
-        "Make sure you're logged in to https://academy.hackthebox.com in your "
-        "browser, then re-run (or pass --reload-cookie to re-scan).\n"
+        f"No {label} session found in any scanned browser profile.\n"
+        f"{login_hint}browser, then re-run (or pass --reload-cookie to re-scan).\n"
         f"Scanned: {dbs}"
         + (f"\nLast profile error: {last_error}" if last_error else "")
     )
+
+
+def grab_htb_cookie(verbose: bool = True) -> str:
+    """Convenience wrapper for HackTheBox Academy (`htb_academy_session`)."""
+    return grab_cookie(
+        cookie_name=TARGET_COOKIE_NAME,
+        domain=TARGET_DOMAIN,
+        label="HTB Academy",
+        login_url="https://academy.hackthebox.com",
+        verbose=verbose,
+    )
+
+
+def grab_thm_cookie(verbose: bool = True) -> str:
+    """Convenience wrapper for TryHackMe (`connect.sid`).
+
+    THM uses an Express.js session cookie; we also grab `_csrf` since some
+    writeups report it being required for v2 API endpoints.
+    """
+    # Primary: connect.sid (auth). Some endpoints may also want _csrf, so grab
+    # both and join into one header — costs nothing and avoids 403s.
+    sid = grab_cookie(
+        cookie_name="connect.sid",
+        domain="tryhackme.com",
+        label="TryHackMe",
+        login_url="https://tryhackme.com",
+        verbose=verbose,
+    )
+    # Best-effort _csrf grab (don't fail if absent — many endpoints don't need it).
+    try:
+        csrf = grab_cookie(
+            cookie_name="_csrf",
+            domain="tryhackme.com",
+            label="TryHackMe",
+            verbose=False,
+        )
+        return f"{sid}; {csrf}"
+    except SystemExit:
+        return sid
 
 
 def _profile_label(cookie_db: str) -> str:
