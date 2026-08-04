@@ -22,17 +22,20 @@ are reused by the THM scraper — don't duplicate them there).
 
 ## Commands
 
+Dependencies live in `pyproject.toml`, pinned by the committed `uv.lock`. Add
+one with `uv add <pkg>` — never hand-edit the lock, and there is no
+`requirements.txt` any more.
+
 ```bash
-source .venv/bin/activate                     # PEP-668 Arch box; never pip install system-wide
-pip install -r requirements.txt
+uv sync                                              # PEP-668 Arch box; never pip install system-wide
 
-python htb_scraper.py 293 --dry-run           # HTB: auth + section list, no files
-python htb_scraper.py 293                     # HTB: full download
-python thm_scraper.py csrfintroduction        # THM: room by slug (or full URL)
-python thm_scraper.py <room> --dry-run
+uv run python htb_scraper.py 293 --dry-run           # HTB: auth + section list, no files
+uv run python htb_scraper.py 293                     # HTB: full download
+uv run python thm_scraper.py csrfintroduction        # THM: room by slug (or full URL)
+uv run python thm_scraper.py <room> --dry-run
 
-python test_thm.py                            # the only test suite; plain asserts, no pytest
-python -m py_compile *.py                      # syntax check
+uv run python test_thm.py                            # the only test suite; plain asserts, no pytest
+uv run python -m py_compile *.py                     # syntax check
 ```
 
 See AGENTS.md for the rest of the HTB flags (`--debug-json`,

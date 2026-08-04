@@ -1,0 +1,18 @@
+[project]
+name = "lab-dl"
+version = "0.1.0"
+description = "Download HackTheBox Academy modules and TryHackMe rooms as Markdown for offline study."
+requires-python = ">=3.9"
+dependencies = [
+    "requests>=2.31.0",
+    # Optional in spirit (imported lazily) but cheap: enables auto-grabbing the
+    # session cookie from a local Firefox-based browser profile.
+    "browser_cookie3>=0.16.2",
+    # TryHackMe rooms only — their task HTML is standard, so bs4+markdownify
+    # replace the hand-rolled converter.py pipeline used for HTB.
+    "beautifulsoup4>=4.12.0",
+    "markdownify>=0.13.0",
+]
+
+[tool.uv]
+package = false

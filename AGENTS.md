@@ -19,7 +19,7 @@ htb_scraper.py   # CLI entry + orchestration (argparse, run()). Run this directl
 htb_api.py       # HTBClient: the 4 API endpoints, headers, {"data":…} unwrapping, auth errors
 converter.py     # content cleanup + HTML-fragment→Markdown + image download (CDN fallback)
 cookiejar.py     # auto-grab htb_academy_session from a local Firefox-based browser profile
-requirements.txt # requests + browser_cookie3 (the latter is optional but enables auto-grab)
+pyproject.toml   # deps, managed by uv; uv.lock pins them (both are committed)
 cookies.txt      # USER SECRET — gitignored. Raw Cookie: header. Auto-written by the browser grab.
 output/          # exported modules — gitignored
 ```
@@ -27,15 +27,14 @@ output/          # exported modules — gitignored
 ## Commands
 
 ```bash
-source .venv/bin/activate                 # PEP-668 Arch env; never pip install system-wide
-pip install -r requirements.txt
-python htb_scraper.py 293 --dry-run       # auth + section list, writes no files (first check)
-python htb_scraper.py 293                 # full download (auto-grabs cookie if no cookies.txt)
-python htb_scraper.py 293 --reload-cookie # re-grab cookie from browser, overwrite cookies.txt
-python htb_scraper.py 23 --debug-json     # dump raw API JSON to find field names (e.g. walkthrough_id)
-python htb_scraper.py 23 --no-walkthrough # sections only, skip the "Show solution" walkthrough
-python htb_scraper.py <id|url> --cookie "..." --output ./notes
-python -m py_compile htb_api.py converter.py cookiejar.py htb_scraper.py   # syntax check
+uv sync                                          # PEP-668 Arch env; never pip install system-wide
+uv run python htb_scraper.py 293 --dry-run       # auth + section list, writes no files (first check)
+uv run python htb_scraper.py 293                 # full download (auto-grabs cookie if no cookies.txt)
+uv run python htb_scraper.py 293 --reload-cookie # re-grab cookie from browser, overwrite cookies.txt
+uv run python htb_scraper.py 23 --debug-json     # dump raw API JSON to find field names (e.g. walkthrough_id)
+uv run python htb_scraper.py 23 --no-walkthrough # sections only, skip the "Show solution" walkthrough
+uv run python htb_scraper.py <id|url> --cookie "..." --output ./notes
+uv run python -m py_compile htb_api.py converter.py cookiejar.py htb_scraper.py   # syntax check
 ```
 
 Python 3.9+ (`from __future__ import annotations` is used).

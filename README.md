@@ -25,11 +25,15 @@ export. The contributors of this tool are not responsible for misuse.
 
 ## Install
 
+This project uses [uv](https://docs.astral.sh/uv/). It creates the venv and
+installs the locked dependencies on the first `uv run`:
+
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+uv sync
 ```
+
+Then prefix commands with `uv run` (as below), or activate the venv it made
+(`source .venv/bin/activate`) and drop the prefix.
 
 Requires Python 3.9+ (uses `from __future__ import annotations`).
 
@@ -46,17 +50,17 @@ with no cookie at all — it will find the session in your browser profile
 automatically:
 
 ```bash
-python htb_scraper.py 293        # auto-grabs cookie on first run
+uv run python htb_scraper.py 293        # auto-grabs cookie on first run
 ```
 
 The grabbed cookie is cached to `cookies.txt`, so subsequent runs are instant.
 To force a refresh (e.g. after the session expires):
 
 ```bash
-python htb_scraper.py 293 --reload-cookie
+uv run python htb_scraper.py 293 --reload-cookie
 ```
 
-This needs the optional `browser_cookie3` dependency (`pip install -r requirements.txt`).
+This needs the `browser_cookie3` dependency (installed by `uv sync`).
 
 ### Option B — manual
 
@@ -76,23 +80,23 @@ This needs the optional `browser_cookie3` dependency (`pip install -r requiremen
 
 ```bash
 # By module id (reads ./cookies.txt by default)
-python htb_scraper.py 293
+uv run python htb_scraper.py 293
 
 # By URL (module or section)
-python htb_scraper.py https://academy.hackthebox.com/module/293
-python htb_scraper.py https://academy.hackthebox.com/module/293/section/1234
+uv run python htb_scraper.py https://academy.hackthebox.com/module/293
+uv run python htb_scraper.py https://academy.hackthebox.com/module/293/section/1234
 
 # Inline cookie
-python htb_scraper.py 293 --cookie "htb_academy_session=...; XSRF-TOKEN=..."
+uv run python htb_scraper.py 293 --cookie "htb_academy_session=...; XSRF-TOKEN=..."
 
 # Custom output dir
-python htb_scraper.py 293 --output ./notes
+uv run python htb_scraper.py 293 --output ./notes
 
 # Dry run — auth check + section list, no files written
-python htb_scraper.py 293 --dry-run
+uv run python htb_scraper.py 293 --dry-run
 
 # Re-grab cookie from browser (after session expires)
-python htb_scraper.py 293 --reload-cookie
+uv run python htb_scraper.py 293 --reload-cookie
 ```
 
 ### Flags
@@ -114,7 +118,7 @@ python htb_scraper.py 293 --reload-cookie
 
 ```bash
 for id in 293 112 15; do
-  python htb_scraper.py "$id"
+  uv run python htb_scraper.py "$id"
 done
 ```
 
@@ -154,7 +158,7 @@ first, then re-run.
 htb_scraper.py    CLI entry + orchestration
 htb_api.py        HTBClient: endpoints, headers, JSON unwrapping, auth errors
 converter.py      content cleanup, HTML→Markdown, image download
-requirements.txt  requests
+pyproject.toml    dependencies (managed by uv; uv.lock pins them)
 cookies.txt.example
 .gitignore        excludes cookies.txt, output/, venv/
 ```
