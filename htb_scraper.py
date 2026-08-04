@@ -29,7 +29,7 @@ import requests
 
 from htb_api import HTBAuthError, HTBClient, HTBNotFoundError, HTBAPIError
 from converter import content_to_markdown, rewrite_images
-from ui import say
+from ui import say, table as ui_table
 
 
 # ---------------------------------------------------------------------------
@@ -395,7 +395,7 @@ def run(args: argparse.Namespace) -> int:
     progress = info.get("progress", 0)
     if is_unlocked is False and (progress or 0) == 0:
         say(
-            "  ⚠ This module is locked (is_unlocked=false, progress=0).\n"
+            "  ! This module is locked (is_unlocked=false, progress=0).\n"
             "    Unlock it in the HTB Academy UI first, then re-run.\n"
             "    (Refusing to proceed to avoid an unintended cube spend.)",
             file=sys.stderr,
@@ -417,12 +417,14 @@ def run(args: argparse.Namespace) -> int:
                   file=sys.stderr)
             return 6
 
-    say(f"  • {len(sections)} section(s)")
-    for s in sections:
-        say(f"      {s['num']:>2}. [{s.get('type',''):<11}] {s['title']}")
+    ui_table(
+        ["#", "Type", "Title"],
+        [[s["num"], s.get("type", ""), s["title"]] for s in sections],
+        title=f"{name} — {len(sections)} section(s)",
+    )
 
     if args.dry_run:
-        say("\n--dry-run: not writing any files. ✅")
+        say("\n--dry-run: not writing any files.")
         return 0
 
     # Output directory.
@@ -504,7 +506,7 @@ def run(args: argparse.Namespace) -> int:
     readme_path.write_text(readme, encoding="utf-8")
     written.append(readme_path)
 
-    say(f"\n✅ Done. {len(written)} file(s) under {module_dir.relative_to(out_root)}/")
+    say(f"\n✓ Done. {len(written)} file(s) under {module_dir.relative_to(out_root)}/")
     return 0
 
 

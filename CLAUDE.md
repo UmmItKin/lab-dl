@@ -16,8 +16,8 @@ offline study:
   folder per module, one numbered `.md` per section, `assets/` for images.
 - **TryHackMe** — `thm_scraper.py` → `thm_api.py`. One room → one `.md` file.
 
-Shared: `ui.py` (`say()` — colored, print-compatible; use it instead of
-`print()`), `cookiejar.py` (browser cookie grab for both) and `converter.py`
+Shared: `ui.py` (`say()` — colored, print-compatible, use it instead of
+`print()`; `table()` for listings; no emoji in output, only `→ ✓ ✗ • !`), `cookiejar.py` (browser cookie grab for both) and `converter.py`
 (`download_image`, `_split_code_and_text`, `_MD_IMG_RE`, `_collapse_blanks`
 are reused by the THM scraper — don't duplicate them there).
 

@@ -14,7 +14,9 @@ from __future__ import annotations
 
 import sys
 
+from rich import box
 from rich.console import Console
+from rich.table import Table
 
 _out = Console(markup=False, highlight=False)
 _err = Console(markup=False, highlight=False, stderr=True)
@@ -53,6 +55,19 @@ def say(*args, file=None, **kwargs) -> None:
     console.print(text, style=_style_for(text), soft_wrap=True, **kwargs)
 
 
+def table(columns: list[str], rows: list[list], title: str | None = None) -> None:
+    """Print a bordered table. Cells are rendered as plain text (no markup), so
+    values containing brackets are safe."""
+    t = Table(title=title, box=box.ROUNDED, header_style="bold cyan",
+              title_style="bold", title_justify="left")
+    for i, col in enumerate(columns):
+        # First column is usually a number/id: right-align it, keep it narrow.
+        t.add_column(col, justify="right" if i == 0 else "left", no_wrap=(i == 0))
+    for row in rows:
+        t.add_row(*("" if c is None else str(c) for c in row))
+    _out.print(t)
+
+
 def demo() -> None:
     for line in ["→ Fetching module 90 metadata…", "  ✓ wrote 01-Intro.md",
                  "  • 15 section(s)", "     1. [theory     ] Overview",
@@ -62,6 +77,9 @@ def demo() -> None:
     assert _style_for("  ✓ x") == "bold green"
     assert _style_for("  auth error: 401") == "bold red"
     assert _style_for("     1. [theory] Overview") is None  # brackets untouched
+    table(["#", "Type", "Title"],
+          [[1, "theory", "Overview"], [2, "interactive", "Pre-Engagement"]],
+          title="Sections")
     print("ui self-check passed")
 
 

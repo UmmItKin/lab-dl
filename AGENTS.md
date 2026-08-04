@@ -17,7 +17,7 @@ redistribute exported content.
 ```
 htb_scraper.py   # CLI entry + orchestration (argparse, run()). Run this directly.
 htb_api.py       # HTBClient: the 4 API endpoints, headers, {"data":…} unwrapping, auth errors
-ui.py            # say(): colored console output (rich), color picked from the line's leading glyph
+ui.py            # say() + table(): colored console output (rich); color picked from the line's leading glyph
 converter.py     # content cleanup + HTML-fragment→Markdown + image download (CDN fallback)
 cookiejar.py     # auto-grab htb_academy_session from a local Firefox-based browser profile
 pyproject.toml   # deps, managed by uv; uv.lock pins them (both are committed)
@@ -68,7 +68,9 @@ Python 3.9+ (`from __future__ import annotations` is used).
   configured `markup=False, highlight=False, soft_wrap=True`: our output
   contains literal brackets (`[theory     ]`, `[!bash!]$`) that Rich markup
   would eat, and re-wrapping would break long paths. `say(..., file=sys.stderr)`
-  routes to the stderr console.
+  routes to the stderr console. `ui.table(columns, rows, title=…)` renders list
+  output (section/task listings). **No emoji in output** — only the plain
+  glyphs `→ ✓ ✗ • !`.
 
 - **HTB section bodies are Markdown with *embedded HTML fragments*, NOT pure
   HTML.** Never pass the whole document through an HTML→Markdown engine

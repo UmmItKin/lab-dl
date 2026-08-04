@@ -27,7 +27,7 @@ from converter import (
     download_image,
 )
 from thm_api import THM_BASE, THMAPIError, THMAuthError, THMClient, THMNotFoundError
-from ui import say
+from ui import say, table as ui_table
 
 
 # ---------------------------------------------------------------------------
@@ -269,13 +269,15 @@ def run(args: argparse.Namespace) -> int:
         return 1
 
     title = room_info.get("title", room_code)
-    say(f"  • {title} — {len(tasks)} task(s)")
-    for t in sorted(tasks, key=lambda t: t.get("taskNo", 0)):
-        qcount = len(t.get("questions", []) or [])
-        say(f"      Task {t.get('taskNo')}: {t.get('title')} ({qcount} Q)")
+    ui_table(
+        ["Task", "Title", "Questions"],
+        [[t.get("taskNo"), t.get("title"), len(t.get("questions", []) or [])]
+         for t in sorted(tasks, key=lambda t: t.get("taskNo", 0))],
+        title=f"{title} — {len(tasks)} task(s)",
+    )
 
     if args.dry_run:
-        say("\n--dry-run: not writing any files. ✅")
+        say("\n--dry-run: not writing any files.")
         return 0
 
     # Output: one .md per room.
@@ -291,7 +293,7 @@ def run(args: argparse.Namespace) -> int:
     md = rewrite_images(md, assets_dir, http, cookie)
 
     out_file.write_text(md, encoding="utf-8")
-    say(f"\n✅ Wrote {out_file}")
+    say(f"\n✓ Wrote {out_file}")
     return 0
 
 
