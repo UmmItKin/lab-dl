@@ -16,7 +16,8 @@ offline study:
   folder per module, one numbered `.md` per section, `assets/` for images.
 - **TryHackMe** — `thm_scraper.py` → `thm_api.py`. One room → one `.md` file.
 
-Shared: `cookiejar.py` (browser cookie grab for both) and `converter.py`
+Shared: `ui.py` (`say()` — colored, print-compatible; use it instead of
+`print()`), `cookiejar.py` (browser cookie grab for both) and `converter.py`
 (`download_image`, `_split_code_and_text`, `_MD_IMG_RE`, `_collapse_blanks`
 are reused by the THM scraper — don't duplicate them there).
 
@@ -34,6 +35,7 @@ uv run python htb_scraper.py 293                     # HTB: full download
 uv run python thm_scraper.py csrfintroduction        # THM: room by slug (or full URL)
 uv run python thm_scraper.py <room> --dry-run
 
+uv run python ui.py                                  # color self-check
 uv run python test_thm.py                            # the only test suite; plain asserts, no pytest
 uv run python -m py_compile *.py                     # syntax check
 ```

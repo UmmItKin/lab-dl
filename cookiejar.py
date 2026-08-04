@@ -20,6 +20,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from ui import say
+
 # browser_cookie3 is the only third-party dep here. Imported lazily inside
 # grab_htb_cookie() so that `import cookiejar` never hard-fails if the package
 # is absent — callers get a clear error only when they actually try to grab.
@@ -144,7 +146,7 @@ def grab_cookie(
             f"{label}, or pass --cookie '...' / create cookies.txt manually."
         )
     if verbose:
-        print(f"→ Scanning {len(dbs)} browser profile(s) for a {label} session…")
+        say(f"→ Scanning {len(dbs)} browser profile(s) for a {label} session…")
 
     last_error: Exception | None = None
     for db in dbs:
@@ -157,7 +159,7 @@ def grab_cookie(
             if c.name == cookie_name:
                 if verbose:
                     profile = _profile_label(db)
-                    print(f"  ✓ found {cookie_name} in {profile}")
+                    say(f"  ✓ found {cookie_name} in {profile}")
                 return f"{cookie_name}={c.value}"
 
     # Scanned every profile, none had the cookie.

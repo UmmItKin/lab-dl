@@ -29,6 +29,7 @@ import requests
 
 from htb_api import HTBAuthError, HTBClient, HTBNotFoundError, HTBAPIError
 from converter import content_to_markdown, rewrite_images
+from ui import say
 
 
 # ---------------------------------------------------------------------------
@@ -78,7 +79,7 @@ def load_cookie(args: argparse.Namespace) -> str:
         # No cookie file and no --cookie: fall back to the browser auto-grab.
         # This is the common case — the user is logged in to HTB Academy in
         # their browser and just wants the scraper to use that session.
-        print(f"→ No {cookie_file} found. Auto-grabbing from your browser…")
+        say(f"→ No {cookie_file} found. Auto-grabbing from your browser…")
         return _grab_and_cache(cookie_file)
 
     raw = cookie_file.read_text(encoding="utf-8")
@@ -131,7 +132,7 @@ def _grab_and_cache(cookie_file: Path) -> str:
 
     cookie = cookiejar.grab_htb_cookie()
     cookiejar.save_to_cookie_file(cookie, cookie_file)
-    print(f"  ✓ saved to {cookie_file} (next run will reuse it; pass "
+    say(f"  ✓ saved to {cookie_file} (next run will reuse it; pass "
           f"--reload-cookie to refresh)")
     return cookie
 
@@ -343,7 +344,7 @@ def run(args: argparse.Namespace) -> int:
     client = HTBClient(cookie=cookie, timeout=args.timeout)
     client.set_referer(module_id)
 
-    print(f"→ Fetching module {module_id} metadata…")
+    say(f"→ Fetching module {module_id} metadata…")
     try:
         info = client.get_module(module_id)
     except HTBAuthError as e:
@@ -351,9 +352,9 @@ def run(args: argparse.Namespace) -> int:
         # visible until the API rejects it. Re-grab from the browser once and
         # retry, unless the user pinned the cookie themselves with --cookie.
         if args.cookie:
-            print(f"  auth error: {e}", file=sys.stderr)
+            say(f"  auth error: {e}", file=sys.stderr)
             return 2
-        print("  cookie rejected — re-grabbing from your browser…")
+        say("  cookie rejected — re-grabbing from your browser…")
         try:
             cookie = _grab_and_cache(
                 Path(args.cookie_file) if args.cookie_file else Path("cookies.txt")
@@ -362,30 +363,30 @@ def run(args: argparse.Namespace) -> int:
             client.set_referer(module_id)
             info = client.get_module(module_id)
         except HTBAuthError as e2:
-            print(f"  auth error: {e2}", file=sys.stderr)
+            say(f"  auth error: {e2}", file=sys.stderr)
             return 2
     except HTBNotFoundError as e:
-        print(f"  not found: {e}", file=sys.stderr)
+        say(f"  not found: {e}", file=sys.stderr)
         return 3
 
     name = info.get("name", f"Module {module_id}")
-    print(f"  • {name}")
+    say(f"  • {name}")
 
     # --debug-json: dump raw API responses so we can discover field names
     # (e.g. walkthrough_id) without guessing. Writes nothing.
     if args.debug_json:
-        print("=== module response (first 8000 chars) ===")
-        print(json.dumps(info, indent=2, ensure_ascii=False)[:8000])
+        say("=== module response (first 8000 chars) ===")
+        say(json.dumps(info, indent=2, ensure_ascii=False)[:8000])
         try:
             sections_preview = client.get_sections(module_id)
             if sections_preview:
                 first = sections_preview[0]
                 content = client.get_section_content(module_id, first["id"])
-                print(f"\n=== first section ({first['title']!r}) response (first 4000 chars) ===")
-                print(json.dumps(content, indent=2, ensure_ascii=False)[:4000])
+                say(f"\n=== first section ({first['title']!r}) response (first 4000 chars) ===")
+                say(json.dumps(content, indent=2, ensure_ascii=False)[:4000])
         except (HTBAPIError, requests.RequestException) as e:
-            print(f"\n(section preview failed: {e})", file=sys.stderr)
-        print("\n--debug-json: look for a 'walkthrough_id' / 'walkthrough' "
+            say(f"\n(section preview failed: {e})", file=sys.stderr)
+        say("\n--debug-json: look for a 'walkthrough_id' / 'walkthrough' "
               "field above. No files written.")
         return 0
 
@@ -393,7 +394,7 @@ def run(args: argparse.Namespace) -> int:
     is_unlocked = info.get("is_unlocked", True)
     progress = info.get("progress", 0)
     if is_unlocked is False and (progress or 0) == 0:
-        print(
+        say(
             "  ⚠ This module is locked (is_unlocked=false, progress=0).\n"
             "    Unlock it in the HTB Academy UI first, then re-run.\n"
             "    (Refusing to proceed to avoid an unintended cube spend.)",
@@ -401,27 +402,27 @@ def run(args: argparse.Namespace) -> int:
         )
         return 4
 
-    print(f"→ Fetching section list…")
+    say(f"→ Fetching section list…")
     sections = client.get_sections(module_id)
     info["_section_count"] = [None] * len(sections)  # for frontmatter num/total
     if not sections:
-        print("  ! No sections returned. The module may be empty or the API changed.",
+        say("  ! No sections returned. The module may be empty or the API changed.",
               file=sys.stderr)
         return 5
 
     if only_section_id is not None:
         sections = [s for s in sections if s["id"] == only_section_id]
         if not sections:
-            print(f"  ! Section {only_section_id} not found in module {module_id}.",
+            say(f"  ! Section {only_section_id} not found in module {module_id}.",
                   file=sys.stderr)
             return 6
 
-    print(f"  • {len(sections)} section(s)")
+    say(f"  • {len(sections)} section(s)")
     for s in sections:
-        print(f"      {s['num']:>2}. [{s.get('type',''):<11}] {s['title']}")
+        say(f"      {s['num']:>2}. [{s.get('type',''):<11}] {s['title']}")
 
     if args.dry_run:
-        print("\n--dry-run: not writing any files. ✅")
+        say("\n--dry-run: not writing any files. ✅")
         return 0
 
     # Output directory.
@@ -434,12 +435,12 @@ def run(args: argparse.Namespace) -> int:
     written: list[Path] = []
 
     for s in sections:
-        print(f"\n→ Section {s['num']}/{len(sections)}: {s['title']}")
+        say(f"\n→ Section {s['num']}/{len(sections)}: {s['title']}")
         client.set_referer(module_id)
         try:
             data = client.get_section_content(module_id, s["id"])
         except (HTBAPIError, requests.RequestException) as e:
-            print(f"  ! failed to fetch section content: {e}", file=sys.stderr)
+            say(f"  ! failed to fetch section content: {e}", file=sys.stderr)
             continue
 
         raw = (data or {}).get("content", "") or ""
@@ -457,7 +458,7 @@ def run(args: argparse.Namespace) -> int:
         dest = module_dir / fname
         dest.write_text(section_md, encoding="utf-8")
         written.append(dest)
-        print(f"  ✓ wrote {dest.relative_to(out_root)}")
+        say(f"  ✓ wrote {dest.relative_to(out_root)}")
 
         if not args.no_jitter:
             time.sleep(1.5)
@@ -471,19 +472,19 @@ def run(args: argparse.Namespace) -> int:
     if not args.no_walkthrough:
         wid = info.get("walkthrough_id")
         if not wid:
-            print("\n→ No walkthrough_id found on module (module may have no "
+            say("\n→ No walkthrough_id found on module (module may have no "
                   "skill assessment, or the field has a different name). "
                   "Skipping. Run with --debug-json to inspect available fields.")
         else:
-            print(f"\n→ Fetching walkthrough {wid}…")
+            say(f"\n→ Fetching walkthrough {wid}…")
             try:
                 wd = client.get_walkthrough(int(wid))
                 raw_w = (wd or {}).get("instructions", "") or ""
             except HTBNotFoundError:
-                print(f"  ! walkthrough {wid} returned 404; skipping.", file=sys.stderr)
+                say(f"  ! walkthrough {wid} returned 404; skipping.", file=sys.stderr)
                 raw_w = ""
             except (HTBAPIError, requests.RequestException) as e:
-                print(f"  ! failed to fetch walkthrough: {e}", file=sys.stderr)
+                say(f"  ! failed to fetch walkthrough: {e}", file=sys.stderr)
                 raw_w = ""
 
             if raw_w.strip():
@@ -495,7 +496,7 @@ def run(args: argparse.Namespace) -> int:
                 dest_w = module_dir / walkthrough_fname
                 dest_w.write_text(section_md_w, encoding="utf-8")
                 written.append(dest_w)
-                print(f"  ✓ wrote {dest_w.relative_to(out_root)}")
+                say(f"  ✓ wrote {dest_w.relative_to(out_root)}")
 
     # Module-level README with TOC.
     readme = build_readme(module_id, info, sections, walkthrough_fname)
@@ -503,7 +504,7 @@ def run(args: argparse.Namespace) -> int:
     readme_path.write_text(readme, encoding="utf-8")
     written.append(readme_path)
 
-    print(f"\n✅ Done. {len(written)} file(s) under {module_dir.relative_to(out_root)}/")
+    say(f"\n✅ Done. {len(written)} file(s) under {module_dir.relative_to(out_root)}/")
     return 0
 
 
@@ -584,13 +585,13 @@ def main(argv: list[str] | None = None) -> int:
     try:
         return run(args)
     except KeyboardInterrupt:
-        print("\nInterrupted.", file=sys.stderr)
+        say("\nInterrupted.", file=sys.stderr)
         return 130
     except (HTBAuthError, HTBNotFoundError, HTBAPIError) as e:
-        print(f"Error: {e}", file=sys.stderr)
+        say(f"Error: {e}", file=sys.stderr)
         return 1
     except ValueError as e:
-        print(f"Error: {e}", file=sys.stderr)
+        say(f"Error: {e}", file=sys.stderr)
         return 1
 
 

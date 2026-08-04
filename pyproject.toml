@@ -12,6 +12,7 @@ dependencies = [
     # replace the hand-rolled converter.py pipeline used for HTB.
     "beautifulsoup4>=4.12.0",
     "markdownify>=0.13.0",
+    "rich>=15.0.0",
 ]
 
 [tool.uv]

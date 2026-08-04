@@ -27,6 +27,7 @@ from converter import (
     download_image,
 )
 from thm_api import THM_BASE, THMAPIError, THMAuthError, THMClient, THMNotFoundError
+from ui import say
 
 
 # ---------------------------------------------------------------------------
@@ -216,14 +217,14 @@ def run(args: argparse.Namespace) -> int:
         cookie_file = Path(args.cookie_file) if args.cookie_file else Path("cookies-thm.txt")
         if getattr(args, "reload_cookie", False) or not cookie_file.exists():
             if not cookie_file.exists():
-                print(f"→ No {cookie_file} found. Auto-grabbing from your browser…")
+                say(f"→ No {cookie_file} found. Auto-grabbing from your browser…")
             cookie = cookiejar.grab_thm_cookie()
             cookiejar.save_to_cookie_file(cookie, cookie_file)
-            print(f"  ✓ saved to {cookie_file}")
+            say(f"  ✓ saved to {cookie_file}")
         else:
             raw = cookie_file.read_text(encoding="utf-8").strip()
             if not raw or "connect.sid=" not in raw:
-                print(f"→ {cookie_file} has no connect.sid; re-grabbing from browser…")
+                say(f"→ {cookie_file} has no connect.sid; re-grabbing from browser…")
                 cookie = cookiejar.grab_thm_cookie()
                 cookiejar.save_to_cookie_file(cookie, cookie_file)
             else:
@@ -237,7 +238,7 @@ def run(args: argparse.Namespace) -> int:
 
     client = THMClient(cookie=cookie, room_code=room_code, timeout=args.timeout)
 
-    print(f"→ Fetching room {room_code!r}…")
+    say(f"→ Fetching room {room_code!r}…")
     try:
         room_info = client.get_room_info(room_code)
         tasks = client.get_room_tasks(room_code)
@@ -245,9 +246,9 @@ def run(args: argparse.Namespace) -> int:
         # A cached cookies-thm.txt only reveals itself as stale here. Re-grab
         # from the browser once and retry, unless the user passed --cookie.
         if args.cookie:
-            print(f"  auth error: {e}", file=sys.stderr)
+            say(f"  auth error: {e}", file=sys.stderr)
             return 2
-        print("  cookie rejected — re-grabbing from your browser…")
+        say("  cookie rejected — re-grabbing from your browser…")
         try:
             cookie = cookiejar.grab_thm_cookie()
             cookiejar.save_to_cookie_file(
@@ -258,23 +259,23 @@ def run(args: argparse.Namespace) -> int:
             room_info = client.get_room_info(room_code)
             tasks = client.get_room_tasks(room_code)
         except THMAuthError as e2:
-            print(f"  auth error: {e2}", file=sys.stderr)
+            say(f"  auth error: {e2}", file=sys.stderr)
             return 2
     except THMNotFoundError as e:
-        print(f"  not found: {e}", file=sys.stderr)
+        say(f"  not found: {e}", file=sys.stderr)
         return 3
     except THMAPIError as e:
-        print(f"  API error: {e}", file=sys.stderr)
+        say(f"  API error: {e}", file=sys.stderr)
         return 1
 
     title = room_info.get("title", room_code)
-    print(f"  • {title} — {len(tasks)} task(s)")
+    say(f"  • {title} — {len(tasks)} task(s)")
     for t in sorted(tasks, key=lambda t: t.get("taskNo", 0)):
         qcount = len(t.get("questions", []) or [])
-        print(f"      Task {t.get('taskNo')}: {t.get('title')} ({qcount} Q)")
+        say(f"      Task {t.get('taskNo')}: {t.get('title')} ({qcount} Q)")
 
     if args.dry_run:
-        print("\n--dry-run: not writing any files. ✅")
+        say("\n--dry-run: not writing any files. ✅")
         return 0
 
     # Output: one .md per room.
@@ -290,7 +291,7 @@ def run(args: argparse.Namespace) -> int:
     md = rewrite_images(md, assets_dir, http, cookie)
 
     out_file.write_text(md, encoding="utf-8")
-    print(f"\n✅ Wrote {out_file}")
+    say(f"\n✅ Wrote {out_file}")
     return 0
 
 
