@@ -242,8 +242,24 @@ def run(args: argparse.Namespace) -> int:
         room_info = client.get_room_info(room_code)
         tasks = client.get_room_tasks(room_code)
     except THMAuthError as e:
-        print(f"  auth error: {e}", file=sys.stderr)
-        return 2
+        # A cached cookies-thm.txt only reveals itself as stale here. Re-grab
+        # from the browser once and retry, unless the user passed --cookie.
+        if args.cookie:
+            print(f"  auth error: {e}", file=sys.stderr)
+            return 2
+        print("  cookie rejected — re-grabbing from your browser…")
+        try:
+            cookie = cookiejar.grab_thm_cookie()
+            cookiejar.save_to_cookie_file(
+                cookie,
+                Path(args.cookie_file) if args.cookie_file else Path("cookies-thm.txt"),
+            )
+            client = THMClient(cookie=cookie, room_code=room_code, timeout=args.timeout)
+            room_info = client.get_room_info(room_code)
+            tasks = client.get_room_tasks(room_code)
+        except THMAuthError as e2:
+            print(f"  auth error: {e2}", file=sys.stderr)
+            return 2
     except THMNotFoundError as e:
         print(f"  not found: {e}", file=sys.stderr)
         return 3

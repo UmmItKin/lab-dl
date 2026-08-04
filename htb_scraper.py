@@ -347,8 +347,23 @@ def run(args: argparse.Namespace) -> int:
     try:
         info = client.get_module(module_id)
     except HTBAuthError as e:
-        print(f"  auth error: {e}", file=sys.stderr)
-        return 2
+        # A cached cookies.txt can only be found stale here — expiry isn't
+        # visible until the API rejects it. Re-grab from the browser once and
+        # retry, unless the user pinned the cookie themselves with --cookie.
+        if args.cookie:
+            print(f"  auth error: {e}", file=sys.stderr)
+            return 2
+        print("  cookie rejected — re-grabbing from your browser…")
+        try:
+            cookie = _grab_and_cache(
+                Path(args.cookie_file) if args.cookie_file else Path("cookies.txt")
+            )
+            client = HTBClient(cookie=cookie, timeout=args.timeout)
+            client.set_referer(module_id)
+            info = client.get_module(module_id)
+        except HTBAuthError as e2:
+            print(f"  auth error: {e2}", file=sys.stderr)
+            return 2
     except HTBNotFoundError as e:
         print(f"  not found: {e}", file=sys.stderr)
         return 3
