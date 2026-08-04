@@ -16,7 +16,7 @@ USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/1
 
 
 class THMAuthError(Exception):
-    """Cookie missing/expired, or THB redirected to login."""
+    """Cookie missing/expired, or THM redirected to login."""
 
 
 class THMNotFoundError(Exception):
@@ -30,14 +30,11 @@ class THMAPIError(Exception):
 class THMClient:
     """Minimal client for the TryHackMe rooms API."""
 
-    def __init__(self, cookie: str, timeout: int = 30) -> None:
+    def __init__(self, cookie: str, room_code: str, timeout: int = 30) -> None:
         self.cookie = cookie.strip()
         self.timeout = timeout
         self._session = requests.Session()
-        self._referer = THM_BASE + "/"  # default; override per-room via set_referer
-
-    def set_referer(self, room_code: str) -> None:
-        """Point subsequent requests' Referer at a specific room page."""
+        # THM checks Referer; point it at the room page we're scraping.
         self._referer = f"{THM_BASE}/room/{room_code}"
 
     def _get_json(self, path: str, params: dict | None = None) -> dict | list:
@@ -86,24 +83,21 @@ class THMClient:
                 ) from e
             raise THMAPIError(f"Non-JSON response from {url}") from e
 
-    def get_room_info(self, room_code: str) -> dict:
-        """Fetch room metadata (title, description, difficulty, creators, etc.).
-        Returns the `data` object from /api/v2/rooms/details?roomCode=."""
-        payload = self._get_json("/api/v2/rooms/details", params={"roomCode": room_code})
+    def _get_data(self, path: str, room_code: str, expect: type):
+        """GET an endpoint and unwrap its `{"status": "success", "data": …}`
+        envelope, checking `data` is the shape the caller expects."""
+        payload = self._get_json(path, params={"roomCode": room_code})
         if payload.get("status") != "success":
-            raise THMAPIError(f"THM rooms API returned non-success status: {payload}")
+            raise THMAPIError(f"THM {path} returned non-success status: {payload}")
         data = payload.get("data")
-        if not isinstance(data, dict):
-            raise THMAPIError(f"Unexpected THM room info shape: {payload}")
+        if not isinstance(data, expect):
+            raise THMAPIError(f"Unexpected THM {path} shape: {payload}")
         return data
 
+    def get_room_info(self, room_code: str) -> dict:
+        """Room metadata: title, description, difficulty, creators."""
+        return self._get_data("/api/v2/rooms/details", room_code, dict)
+
     def get_room_tasks(self, room_code: str) -> list[dict]:
-        """Fetch the task list for a room. Returns the `data` array
-        (each task has taskNo, title, description (HTML), questions)."""
-        payload = self._get_json("/api/v2/rooms/tasks", params={"roomCode": room_code})
-        if payload.get("status") != "success":
-            raise THMAPIError(f"THM tasks API returned non-success status: {payload}")
-        data = payload.get("data")
-        if not isinstance(data, list):
-            raise THMAPIError(f"Unexpected THM response shape (data is not a list): {payload}")
-        return data
+        """Task list — each has taskNo, title, description (HTML), questions."""
+        return self._get_data("/api/v2/rooms/tasks", room_code, list)

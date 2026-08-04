@@ -315,6 +315,7 @@ def download_image(
     session: requests.Session,
     cookie: str,
     timeout: int = 30,
+    referer: str = HTB_BASE + "/",
 ) -> Path | None:
     """Download one image into assets_dir. Returns the local path, or None on
     failure after trying the CDN fallback."""
@@ -326,7 +327,7 @@ def download_image(
 
     headers = {
         "Cookie": cookie,
-        "Referer": HTB_BASE + "/",
+        "Referer": referer,
         "User-Agent": USER_AGENT,
     }
 

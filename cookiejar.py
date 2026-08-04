@@ -182,31 +182,14 @@ def grab_htb_cookie(verbose: bool = True) -> str:
 
 
 def grab_thm_cookie(verbose: bool = True) -> str:
-    """Convenience wrapper for TryHackMe (`connect.sid`).
-
-    THM uses an Express.js session cookie; we also grab `_csrf` since some
-    writeups report it being required for v2 API endpoints.
-    """
-    # Primary: connect.sid (auth). Some endpoints may also want _csrf, so grab
-    # both and join into one header — costs nothing and avoids 403s.
-    sid = grab_cookie(
+    """Convenience wrapper for TryHackMe (`connect.sid`, an Express session)."""
+    return grab_cookie(
         cookie_name="connect.sid",
         domain="tryhackme.com",
         label="TryHackMe",
         login_url="https://tryhackme.com",
         verbose=verbose,
     )
-    # Best-effort _csrf grab (don't fail if absent — many endpoints don't need it).
-    try:
-        csrf = grab_cookie(
-            cookie_name="_csrf",
-            domain="tryhackme.com",
-            label="TryHackMe",
-            verbose=False,
-        )
-        return f"{sid}; {csrf}"
-    except SystemExit:
-        return sid
 
 
 def _profile_label(cookie_db: str) -> str:

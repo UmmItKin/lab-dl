@@ -4,7 +4,7 @@ Fetches a room's task list from the THM API and writes it as a single
 Markdown file (one room → one .md). Task descriptions are HTML and are
 converted to Markdown via markdownify; images are downloaded locally.
 
-Run via the main scraper with --platform thm, or directly:
+Run it directly:
     python thm_scraper.py csrfintroduction
 """
 
@@ -15,11 +15,18 @@ import json
 import re
 import sys
 from pathlib import Path
+from urllib.parse import urljoin
 
 import requests
 
 import cookiejar
-from thm_api import THMAPIError, THMAuthError, THMClient, THMNotFoundError
+from converter import (
+    _collapse_blanks,
+    _MD_IMG_RE,
+    _split_code_and_text,
+    download_image,
+)
+from thm_api import THM_BASE, THMAPIError, THMAuthError, THMClient, THMNotFoundError
 
 
 # ---------------------------------------------------------------------------
@@ -31,14 +38,10 @@ def html_to_markdown(html: str) -> str:
 
     THM descriptions are clean, standard HTML (<p>, <h1-6>, <ul>, <ol>, <pre>,
     <code>, <img>, <a>, <strong>, <em>). markdownify (BeautifulSoup-based) does
-    the heavy lifting. Two THM-specific fixes are needed:
-
-    1. Language tag: THM puts `class="language-xxx"` on the inner <code>, but
-       markdownify's code_language_callback receives the <pre> element (upstream
-       bug). We pre-process with BeautifulSoup to copy the language class onto
-       the <pre> so the callback sees it.
-    2. Whitespace: markdownify sometimes emits 3+ blank lines or indented fence
-       content; we normalise that in post.
+    the heavy lifting. One THM-specific fix is needed: THM puts
+    `class="language-xxx"` on the inner <code>, but markdownify's
+    code_language_callback receives the <pre> element (upstream bug), so we
+    copy the language class onto the <pre> before converting.
     """
     if not html or not html.strip():
         return ""
@@ -82,136 +85,33 @@ def html_to_markdown(html: str) -> str:
         strip=["script", "iframe", "style"],  # drop embedded JS/CSS/trackers
     ).convert(str(soup))
 
-    md_text = _normalise(md_text)
-    return md_text
-
-
-def _normalise(md: str) -> str:
-    """Tidy markdownify output: strip per-line trailing whitespace, collapse
-    3+ blank lines to 2, and de-indent fenced code blocks (markdownify often
-    leaves a 1-space indent on the first line from THM's `<pre> <code>` gap)."""
-    lines = [ln.rstrip() for ln in md.split("\n")]
-    # Collapse 3+ blank lines to 2.
-    out: list[str] = []
-    blank_run = 0
-    for ln in lines:
-        if ln == "":
-            blank_run += 1
-            if blank_run <= 2:
-                out.append(ln)
-        else:
-            blank_run = 0
-            out.append(ln)
-    md = "\n".join(out).strip() + "\n"
-    # De-indent fenced blocks: strip a common leading-space prefix from every
-    # line inside ``` fences.
-    md = _deindent_fences(md)
-    return md
-
-
-def _deindent_fences(md: str) -> str:
-    """Strip shared leading indentation from lines inside ``` fences."""
-    out: list[str] = []
-    in_fence = False
-    block: list[str] = []
-    for ln in md.split("\n"):
-        stripped = ln.lstrip()
-        is_fence = stripped.startswith("```")
-        if in_fence:
-            if is_fence:
-                # Closing fence — flush de-indented block, then the fence line.
-                if block:
-                    prefix_len = _common_prefix_len(block)
-                    out.extend(b[prefix_len:] for b in block)
-                out.append(stripped)
-                in_fence = False
-                block = []
-            else:
-                block.append(ln)
-        else:
-            if is_fence:
-                out.append(stripped)
-                in_fence = True
-                block = []
-            else:
-                out.append(ln)
-    # Flush any trailing open block (defensive).
-    if block:
-        prefix_len = _common_prefix_len(block)
-        out.extend(b[prefix_len:] for b in block)
-    return "\n".join(out)
-
-
-def _common_prefix_len(lines: list[str]) -> int:
-    """Length of the longest common leading-whitespace prefix across lines
-    (ignoring blank lines). Used to de-indent code blocks uniformly."""
-    non_blank = [ln for ln in lines if ln.strip() != ""]
-    if not non_blank:
-        return 0
-    prefix = non_blank[0]
-    i = 0
-    while i < len(prefix) and prefix[i] in " \t":
-        i += 1
-        for ln in non_blank[1:]:
-            if ln[:i] != prefix[:i]:
-                return i - 1
-    return i
+    return _collapse_blanks(md_text).strip() + "\n"
 
 
 # ---------------------------------------------------------------------------
 # Images
 # ---------------------------------------------------------------------------
 
-_IMG_RE = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
-
-
-def _safe_image_filename(url: str) -> str:
-    import hashlib
-    import os
-    from urllib.parse import urlparse
-
-    parsed = urlparse(url)
-    name = os.path.basename(parsed.path) or "image"
-    if "." not in name:
-        name += ".png"
-    digest = hashlib.md5(url.encode("utf-8")).hexdigest()[:8]
-    stem, ext = os.path.splitext(name)
-    return f"{stem}-{digest}{ext}"
-
-
-def download_image(
-    url: str,
-    assets_dir: Path,
-    session: requests.Session,
-    timeout: int = 30,
-) -> Path | None:
-    """Download one image into assets_dir. Returns local path or None on failure."""
-    assets_dir.mkdir(parents=True, exist_ok=True)
-    filename = _safe_image_filename(url)
-    dest = assets_dir / filename
-    if dest.exists():
-        return dest
-    try:
-        resp = session.get(url, timeout=timeout)
-        if resp.status_code == 200 and resp.content:
-            dest.write_bytes(resp.content)
-            return dest
-    except requests.RequestException:
-        pass
-    return None
-
-
-def rewrite_images(md: str, assets_dir: Path, session: requests.Session) -> str:
-    """Find every Markdown image, download it, rewrite the link to a local path."""
+def rewrite_images(
+    md: str, assets_dir: Path, session: requests.Session, cookie: str
+) -> str:
+    """Download every Markdown image and rewrite the link to a local path.
+    Skips fenced code blocks so `![...]()` inside a snippet stays literal."""
     def repl(m: re.Match) -> str:
         alt, src = m.group(1), m.group(2).strip()
-        local = download_image(src, assets_dir, session)
+        url = urljoin(THM_BASE, src)  # THM srcs are usually absolute already
+        local = download_image(
+            url, assets_dir, session, cookie, referer=THM_BASE + "/"
+        )
         if local is None:
-            return f"![{alt}]({src})"  # keep remote on failure
+            return f"![{alt}]({url})"  # keep remote on failure
         rel = Path("assets") / local.name
         return f"![{alt}]({rel.as_posix()})"
 
-    return _IMG_RE.sub(repl, md)
+    return "\n".join(
+        chunk if is_code else _MD_IMG_RE.sub(repl, chunk)
+        for is_code, chunk in _split_code_and_text(md)
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -265,7 +165,7 @@ def build_room_md(room_code: str, tasks: list[dict], room_meta: dict | None = No
 
     frontmatter = [
         "---",
-        f"platform: thm",
+        "platform: thm",
         f"room: {_yaml_quote(room_code)}",
         f"title: {_yaml_quote(title)}",
         f"difficulty: {_yaml_quote(difficulty)}",
@@ -335,8 +235,7 @@ def run(args: argparse.Namespace) -> int:
     if m:
         room_code = m.group(1)
 
-    client = THMClient(cookie=cookie, timeout=args.timeout)
-    client.set_referer(room_code)
+    client = THMClient(cookie=cookie, room_code=room_code, timeout=args.timeout)
 
     print(f"→ Fetching room {room_code!r}…")
     try:
@@ -372,7 +271,7 @@ def run(args: argparse.Namespace) -> int:
 
     # Download + convert.
     md = build_room_md(room_code, tasks, room_info)
-    md = rewrite_images(md, assets_dir, http)
+    md = rewrite_images(md, assets_dir, http, cookie)
 
     out_file.write_text(md, encoding="utf-8")
     print(f"\n✅ Wrote {out_file}")

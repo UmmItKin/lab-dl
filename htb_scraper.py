@@ -500,14 +500,14 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="htb_scraper.py",
         description=(
-            "Download a HackTheBox Academy module or TryHackMe room as "
-            "structured Markdown. For personal study only — do not redistribute."
+            "Download a HackTheBox Academy module as structured Markdown. "
+            "For personal study only — do not redistribute HTB content. "
+            "(TryHackMe rooms: use thm_scraper.py.)"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "Examples:\n"
-            "  python htb_scraper.py 293                       # HTB module\n"
-            "  python htb_scraper.py csrfintroduction --platform thm   # THM room\n"
+            "  python htb_scraper.py 293\n"
             '  python htb_scraper.py 293 --cookie "htb_academy_session=..."\n'
             "  python htb_scraper.py 293 --dry-run\n"
             "  python htb_scraper.py https://academy.hackthebox.com/module/293\n"
@@ -515,11 +515,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "target",
-        help="Module id/URL (HTB) or room code/URL (THM with --platform thm).",
-    )
-    p.add_argument(
-        "--platform", choices=("htb", "thm"), default="htb",
-        help="Target platform: 'htb' (default) or 'thm' (TryHackMe room).",
+        help="Module id (e.g. 293) or full module/section URL.",
     )
     p.add_argument(
         "--cookie", default=None,
@@ -570,29 +566,6 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-
-    # Platform dispatch: --platform thm forwards to the THM scraper. It has its
-    # own arg set (cookie handling, dry-run, etc.) so we re-invoke it with the
-    # remaining argv rather than adapt our Namespace.
-    if args.platform == "thm":
-        import thm_scraper
-        # Forward only the args thm_scraper understands; it has its own parser.
-        # Rebuild a minimal argv from the recognised flags.
-        forward = [args.target]
-        if args.cookie:
-            forward += ["--cookie", args.cookie]
-        if args.cookie_file:
-            forward += ["--cookie-file", args.cookie_file]
-        if args.output:
-            forward += ["--output", args.output]
-        if args.timeout:
-            forward += ["--timeout", str(args.timeout)]
-        if args.dry_run:
-            forward.append("--dry-run")
-        if args.reload_cookie:
-            forward.append("--reload-cookie")
-        return thm_scraper.main(forward)
-
     try:
         return run(args)
     except KeyboardInterrupt:
