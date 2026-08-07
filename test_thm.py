@@ -1,5 +1,12 @@
 """Self-check for the THM HTML→Markdown path. Run: python test_thm.py"""
 
+import sys
+from pathlib import Path
+
+# The modules under test live in ./src/. Put that on the path so the imports
+# below resolve when this file runs from the repo root.
+sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
+
 from thm_scraper import _format_question, build_room_md, html_to_markdown
 
 

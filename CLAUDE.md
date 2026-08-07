@@ -24,6 +24,11 @@ no emoji. `cookiejar.py` does the browser cookie grab for both platforms.
 and `_collapse_blanks`, which the THM scraper reuses, so don't reimplement them
 there.
 
+All library modules live in `src/`. Run everything through `main.py` at the
+repo root, which dispatches `htb`/`thm` subcommands to each scraper's `main()`.
+`main.py` and `test_thm.py` add `src/` to `sys.path` on startup so the modules'
+bare imports resolve.
+
 ## Commands
 
 Dependencies live in `pyproject.toml`, pinned by the committed `uv.lock`. Add
@@ -33,14 +38,14 @@ one with `uv add <pkg>`. Never hand-edit the lock, and note there is no
 ```bash
 uv sync                                              # PEP-668 Arch box; never pip install system-wide
 
-uv run python htb_scraper.py 293 --dry-run           # HTB: auth + section list, no files
-uv run python htb_scraper.py 293                     # HTB: full download
-uv run python thm_scraper.py csrfintroduction        # THM: room by slug (or full URL)
-uv run python thm_scraper.py <room> --dry-run
+uv run python main.py htb 293 --dry-run              # HTB: auth + section list, no files
+uv run python main.py htb 293                        # HTB: full download
+uv run python main.py thm csrfintroduction           # THM: room by slug (or full URL)
+uv run python main.py thm <room> --dry-run
 
-uv run python ui.py                                  # color self-check
+uv run python src/ui.py                              # color self-check
 uv run python test_thm.py                            # the only test suite; plain asserts, no pytest
-uv run python -m py_compile *.py                     # syntax check
+uv run python -m py_compile src/*.py main.py         # syntax check
 ```
 
 AGENTS.md lists the rest of the HTB flags (`--debug-json`, `--no-walkthrough`,

@@ -15,27 +15,36 @@ redistribute exported content.
 ## Layout
 
 ```
-htb_scraper.py   # CLI entry + orchestration (argparse, run()). Run this directly.
-htb_api.py       # HTBClient: the 4 API endpoints, headers, {"data":…} unwrapping, auth errors
-ui.py            # say() + table(): colored console output (rich); color picked from the line's leading glyph
-converter.py     # content cleanup + HTML-fragment→Markdown + image download (CDN fallback)
-cookiejar.py     # auto-grab htb_academy_session from a local Firefox-based browser profile
+main.py          # entry point: dispatches htb/thm subcommands to the scrapers in src/
+src/
+  htb_scraper.py # HTB orchestration (argparse, run())
+  thm_scraper.py # THM orchestration
+  htb_api.py     # HTBClient: the 4 API endpoints, headers, {"data":…} unwrapping, auth errors
+  thm_api.py     # THMClient: the rooms/tasks endpoint
+  ui.py          # say() + table(): colored console output (rich); color picked from the line's leading glyph
+  converter.py   # content cleanup + HTML-fragment→Markdown + image download (CDN fallback)
+  cookiejar.py   # auto-grab cookies from a local Firefox-based browser profile
+test_thm.py      # self-check; adds src/ to sys.path so it can import the modules
 pyproject.toml   # deps, managed by uv; uv.lock pins them (both are committed)
 cookies.txt      # USER SECRET, gitignored. Raw Cookie: header. Auto-written by the browser grab.
 output/          # exported modules, gitignored
 ```
 
+`main.py` and `test_thm.py` insert `src/` into `sys.path` at startup. The
+modules in `src/` keep bare imports (`from htb_api import …`); do not rewrite
+those to package-relative form.
+
 ## Commands
 
 ```bash
 uv sync                                          # PEP-668 Arch env; never pip install system-wide
-uv run python htb_scraper.py 293 --dry-run       # auth + section list, writes no files (first check)
-uv run python htb_scraper.py 293                 # full download (auto-grabs cookie if no cookies.txt)
-uv run python htb_scraper.py 293 --reload-cookie # re-grab cookie from browser, overwrite cookies.txt
-uv run python htb_scraper.py 23 --debug-json     # dump raw API JSON to find field names (e.g. walkthrough_id)
-uv run python htb_scraper.py 23 --no-walkthrough # sections only, skip the "Show solution" walkthrough
-uv run python htb_scraper.py <id|url> --cookie "..." --output ./notes
-uv run python -m py_compile htb_api.py converter.py cookiejar.py htb_scraper.py   # syntax check
+uv run python main.py htb 293 --dry-run          # auth + section list, writes no files (first check)
+uv run python main.py htb 293                    # full download (auto-grabs cookie if no cookies.txt)
+uv run python main.py htb 293 --reload-cookie    # re-grab cookie from browser, overwrite cookies.txt
+uv run python main.py htb 23 --debug-json        # dump raw API JSON to find field names (e.g. walkthrough_id)
+uv run python main.py htb 23 --no-walkthrough    # sections only, skip the "Show solution" walkthrough
+uv run python main.py htb <id|url> --cookie "..." --output ./notes
+uv run python -m py_compile src/*.py main.py     # syntax check
 ```
 
 Python 3.9+ (`from __future__ import annotations` is used).

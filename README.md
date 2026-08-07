@@ -23,9 +23,9 @@ uv sync
 ## Use
 
 ```bash
-uv run python htb_scraper.py 293                 # HTB module by id or URL
-uv run python thm_scraper.py csrfintroduction    # THM room by slug or URL
-uv run python htb_scraper.py 293 --dry-run       # check auth, write nothing
+uv run python main.py htb 293                 # HTB module by id or URL
+uv run python main.py thm csrfintroduction    # THM room by slug or URL
+uv run python main.py htb 293 --dry-run       # check auth, write nothing
 ```
 
 You can skip cookie setup if you're logged in to either site through a
