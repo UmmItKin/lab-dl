@@ -14,8 +14,6 @@ for personal offline study.
 
 </div>
 
----
-
 ## Install
 
 ```bash
@@ -30,13 +28,14 @@ uv run python thm_scraper.py csrfintroduction    # THM room by slug or URL
 uv run python htb_scraper.py 293 --dry-run       # check auth, write nothing
 ```
 
-No cookie setup needed if you are logged in to either site in a Firefox-based
-browser (Floorp, Firefox, LibreWolf, Zen, Waterfox). The scraper reads the
-session from your profile and caches it to `cookies.txt` / `cookies-thm.txt`,
-both gitignored. If a cached cookie expires it is re-grabbed automatically.
+You can skip cookie setup if you're logged in to either site through a
+Firefox-based browser (Floorp, Firefox, LibreWolf, Zen, Waterfox). The scraper
+reads the session from your profile and caches it to `cookies.txt` or
+`cookies-thm.txt`, both gitignored, and re-grabs it automatically when a cached
+copy expires.
 
-To pass one by hand instead: `--cookie "htb_academy_session=..."` or put it in
-`cookies.txt` (see `cookies.txt.example`).
+To pass one in by hand instead, use `--cookie "htb_academy_session=..."` or put
+it in `cookies.txt` (see `cookies.txt.example`).
 
 ## Output
 
@@ -50,10 +49,11 @@ output/
   csrfintroduction.md      # THM rooms are one file each
 ```
 
-HTB pages are a Markdown and HTML hybrid, so `converter.py` handles the
-embedded fragments (alerts, cards, images, inline tags) without letting an HTML
-engine flatten the surrounding Markdown. THM pages are plain HTML and go
-through markdownify. Images are rewritten to local paths in both.
+HTB pages mix Markdown with embedded HTML, so `converter.py` converts just the
+fragments (alerts, cards, images, inline tags) instead of running the whole
+page through an HTML engine that would flatten the Markdown around them. THM
+pages are plain HTML, so they go straight through markdownify. Both download
+images and rewrite the links to local paths.
 
 ## Flags
 
