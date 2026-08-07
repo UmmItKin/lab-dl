@@ -63,9 +63,25 @@ AGENTS.md lists the rest of the HTB flags (`--debug-json`, `--no-walkthrough`,
 - Output is a single file with YAML frontmatter (`platform: thm`), `## Task N:`
   headings, and questions rendered with hints and the user's submitted answers.
 
+## Shared behavior
+
+Both scrapers re-grab the cookie from the browser automatically when a cached
+one is rejected at the first request (HTTP 401/403), then retry once. This is
+the only way to detect an expired cached session, so don't remove that retry.
+It's skipped when the cookie came from `--cookie`, since a hand-supplied value
+has no browser source to re-grab from.
+
 ## Testing
 
 `test_thm.py` is plain `assert` functions run as a script, with no framework.
+Its `__main__` auto-discovers every `test_*` function, so running the file
+runs the whole suite; there is no per-test flag. To exercise one check in
+isolation, call it directly:
+
+```bash
+uv run python -c "import test_thm; test_thm.test_code_language_lifted_from_code_to_pre()"
+```
+
 Add new checks there in the same style: synthetic HTML or dict input, one
 assert. Anything end to end needs a real session cookie, so use `--dry-run` to
 validate auth before a full download.

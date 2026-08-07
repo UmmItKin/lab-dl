@@ -115,7 +115,11 @@ Python 3.9+ (`from __future__ import annotations` is used).
   decryption is needed. Chromium support would require decryption and is
   intentionally out of scope. The grabbed cookie is cached to `cookies.txt` so
   subsequent runs skip the scan. `browser_cookie3` is imported lazily so the
-  feature degrades gracefully when the package isn't installed.
+  feature degrades gracefully when the package isn't installed. A cached
+  cookie only reveals it's expired once the API rejects it, so on an HTTP
+  401/403 at the first request the scraper re-grabs from the browser, re-caches
+  to `cookies.txt`, and retries once. That retry is skipped when the cookie came
+  from `--cookie` (no browser source to re-grab from). Don't remove it.
 
 ## Security / secrets
 
