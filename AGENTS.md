@@ -148,3 +148,13 @@ For code changes (`*.py`, `pyproject.toml`, `uv.lock`, `README.md`, config),
 show the diff and let the user review before committing. Commit messages are
 one line: a Conventional Commits prefix (`feat:`, `fix:`, `docs:`, …) and a
 short subject, no body.
+
+## Writing style
+
+All English prose in this repo (docs, READMEs, chat replies, user-facing
+strings) follows the `/humanizer:humanizer` style by default, not only when
+that command is invoked. No em or en dashes, no emoji, active voice with real
+subjects rather than passive or subjectless fragments, and none of the common
+AI tells (rule-of-three padding, boldface used as emphasis, words like "delve",
+"leverage", "vibrant"). Run `/humanizer:humanizer` on any substantial new prose
+to catch the rest.
