@@ -85,3 +85,11 @@ uv run python -c "import test_thm; test_thm.test_code_language_lifted_from_code_
 Add new checks there in the same style: synthetic HTML or dict input, one
 assert. Anything end to end needs a real session cookie, so use `--dry-run` to
 validate auth before a full download.
+
+## Commits
+
+Auto-commit only documentation: `CLAUDE.md`, `AGENTS.md`, and `/init` output.
+For code changes (`*.py`, `pyproject.toml`, `uv.lock`, `README.md`, config),
+show the diff and let the user review before committing. Commit messages are
+one line: a Conventional Commits prefix (`feat:`, `fix:`, `docs:`, …) and a
+short subject, no body.
