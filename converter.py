@@ -295,6 +295,10 @@ def _cdn_fallback_url(url: str) -> str | None:
     return f"{parsed.scheme}://{parsed.hostname}{cdn_path}"
 
 
+# Most Linux and macOS filesystems cap a single path component at 255 bytes.
+_NAME_MAX_BYTES = 255
+
+
 def _safe_filename(url: str) -> str:
     """Stable, filesystem-safe name derived from the image URL."""
     parsed = urlparse(url)
@@ -306,6 +310,14 @@ def _safe_filename(url: str) -> str:
     # share a basename don't collide.
     digest = hashlib.md5(url.encode("utf-8")).hexdigest()[:8]
     stem, ext = os.path.splitext(name)
+    # Mermaid diagrams arrive as mermaid.ink/img/pako:<the whole compressed
+    # diagram>, so the basename alone can blow past the filesystem's 255-byte
+    # NAME_MAX and make every path call raise OSError. The digest already keeps
+    # the name unique, so the stem is only a readability hint: truncate it.
+    # Slice bytes, not characters, since a non-ASCII basename can be wider.
+    budget = _NAME_MAX_BYTES - len(f"-{digest}{ext}".encode("utf-8"))
+    stem_bytes = stem.encode("utf-8")[:budget]
+    stem = stem_bytes.decode("utf-8", "ignore") or "image"
     return f"{stem}-{digest}{ext}"
 
 
@@ -343,7 +355,12 @@ def download_image(
             time.sleep(0.5)
             continue
         if resp.status_code == 200 and resp.content:
-            dest.write_bytes(resp.content)
+            try:
+                dest.write_bytes(resp.content)
+            except OSError:
+                # One unwritable asset shouldn't abort a whole module; the
+                # caller keeps the remote link when we return None.
+                return None
             return dest
     return None
 

@@ -22,6 +22,17 @@ def test_question_renders_hint_and_answer():
     assert "_Your answer:_ `80`" in out, out
 
 
+def test_long_image_url_fits_filesystem_name_limit():
+    """Mermaid diagrams embed the whole compressed diagram in the URL path."""
+    from converter import _NAME_MAX_BYTES, _safe_filename
+    url = "https://mermaid.ink/img/pako:" + "eNptkk1uwjAQha8y8rpc" * 30
+    name = _safe_filename(url)
+    assert len(name.encode("utf-8")) <= _NAME_MAX_BYTES, len(name)
+    # Still unique per URL, and still an image.
+    assert name != _safe_filename(url + "x"), name
+    assert name.endswith(".png"), name
+
+
 def test_room_md_has_frontmatter_and_tasks():
     md = build_room_md("demo", [{"taskNo": 1, "title": "Intro",
                                  "description": "<p>hi</p>", "questions": []}],
