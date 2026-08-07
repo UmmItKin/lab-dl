@@ -5,10 +5,12 @@
 Download HackTheBox Academy modules and TryHackMe rooms as clean Markdown,
 for personal offline study.
 
-![Python](https://img.shields.io/badge/python-3.9%2B-3776AB?style=flat-square&logo=python&logoColor=white)
-![uv](https://img.shields.io/badge/deps-uv-DE5FE9?style=flat-square&logo=uv&logoColor=white)
-![HTB Academy](https://img.shields.io/badge/HTB-Academy-9FEF00?style=flat-square&logo=hackthebox&logoColor=black)
-![TryHackMe](https://img.shields.io/badge/TryHackMe-rooms-212C42?style=flat-square&logo=tryhackme&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![uv](https://img.shields.io/badge/uv-managed-DE5FE9?style=for-the-badge&logo=uv&logoColor=white)
+![HTB Academy](https://img.shields.io/badge/HTB-Academy-9FEF00?style=for-the-badge&logo=hackthebox&logoColor=black)
+![TryHackMe](https://img.shields.io/badge/TryHackMe-rooms-212C42?style=for-the-badge&logo=tryhackme&logoColor=white)
+
+![updated](https://img.shields.io/github/last-commit/UmmItKin/lab-dl?style=for-the-badge&logo=git&logoColor=white&label=updated&color=111418)
 
 </div>
 
