@@ -42,6 +42,26 @@ A path run asks before it downloads, and again at the end whether to pack the
 result into a `.tar.xz` next to the folder. With `-y` it downloads without
 asking and skips the archive.
 
+```
+[23:50:32] [ACTION] Fetching path 419 metadata…
+[23:50:36] [INFO] Junior Cybersecurity Analyst (20 modules)
+╭────┬─────┬──────────────────────────────────────╮
+│  # │ ID  │ Module                               │
+├────┼─────┼──────────────────────────────────────┤
+│  1 │ 293 │ Introduction to Information Security │
+│  2 │ 289 │ Network Foundations                  │
+╰────┴─────┴──────────────────────────────────────╯
+[23:50:36] [INPUT] Download 20 module(s) into output/? [y/N] y
+[23:50:36] [INFO]  1/20 █░░░░░░░░░░░ 293 Introduction to Information Security (skipped)
+[23:50:41] [ACTION]  2/20 █░░░░░░░░░░░ 289 Network Foundations
+[23:51:02] [SUCCESS] saved 13 file(s) to 02-289-Network-Foundations/
+[23:53:18] [SUCCESS] The path saved to /home/you/lab-dl/output/419-Junior-Cybersecurity-Analyst
+[23:53:18] [INPUT] Archive it to 419-Junior-Cybersecurity-Analyst.tar.xz? [y/N]
+```
+
+Rerunning a path skips modules that already finished, so an interrupted run
+picks up where it stopped. Pass `--force` to download them again.
+
 ## Output
 
 ```

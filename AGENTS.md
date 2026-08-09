@@ -118,8 +118,10 @@ Python 3.9+ (`from __future__ import annotations` is used).
   with the same `[HH:MM:SS] [ACTION]` columns as a log line (see
   `_progress_columns`), so a live bar lines up with the messages around it. `track` and `rule` fall back to plain output
   when stdout isn't a TTY. Note the console has `markup=False`, so pass a
-  `rich.text.Text` with a style rather than inline `[bold]` tags. No emoji in output, only the plain
-  glyphs `→ ✓ ✗ • !`.
+  `rich.text.Text` with a style rather than inline `[bold]` tags. No emoji
+  anywhere. The glyphs `→ ✓ ✗ • !` still appear in the source at call sites,
+  but only as the level marker `say()` reads and strips, so they never reach
+  the terminal.
 - HTB section bodies are Markdown with embedded HTML fragments, not pure HTML.
   Never pass the whole document through an HTML to Markdown engine (html2text
   and friends), because it collapses Markdown newlines into spaces and destroys
