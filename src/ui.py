@@ -124,29 +124,39 @@ def banner(subtitle: str = "") -> None:
     _out.print(Panel(art, box=box.ROUNDED, border_style="green", expand=False))
 
 
-def rule(title: str, current: int | None = None, total: int | None = None) -> None:
+def rule(
+    title: str,
+    current: int | None = None,
+    total: int | None = None,
+    note: str = "",
+) -> None:
     """One compact header per module in a path run: position, bar, then title.
 
     A full-width Rich rule plus a separate bar was too loud repeated 20 times,
-    so this is a single line that still answers "where am I".
+    so this is a single line that still answers "where am I". The blocks here
+    are deliberately not the `━` that `track()` uses, so the outer module bar
+    can't be mistaken for the inner section bar.
     """
     if current is None or not total:
         # markup=False on the console, so pass the style, not inline tags.
         _out.rule(Text(title, style="bold cyan"), style="cyan")
         return
-    width = 18
+    width = 12
     done = round(width * current / total)
     line = Text()
-    line.append(f"[{current:>2}/{total}] ", style="bold cyan")
-    line.append("━" * done, style="green")
-    line.append("━" * (width - done), style="bright_black")
-    line.append(f"  {title}", style="bold")
+    line.append(f"{current:>2}/{total} ", style="bold cyan")
+    line.append("█" * done, style="green")
+    line.append("░" * (width - done), style="bright_black")
+    line.append(f"  {title}", style="dim" if note else "bold")
+    if note:
+        line.append(f"  ({note})", style="dim")
     _out.print(line)
 
 
 def demo() -> None:
     banner("HTB Academy + TryHackMe -> Markdown")
-    rule("[2/20] 289 Network Foundations", 2, 20)
+    rule("289 Network Foundations", 2, 20)
+    rule("34 Introduction to Networking", 3, 20, note="skipped")
     for line in ["→ Fetching module 90 metadata…", "  ✓ wrote 01-Intro.md",
                  "  • 15 section(s)", "     1. [theory     ] Overview",
                  "  auth error: HTTP 401", "Interrupted."]:

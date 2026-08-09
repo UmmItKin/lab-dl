@@ -581,9 +581,11 @@ def run_path(args: argparse.Namespace) -> int:
     for i, m in enumerate(modules, 1):
         mid, mname = m.get("id"), m.get("name", f"Module {m.get('id')}")
         sub = path_dir / f"{i:02d}-{_module_dir_name(mid, mname)}"
-        ui_rule(f"{mid} {mname}", i, len(modules))
-        if not args.force and (sub / "README.md").exists():
-            say("  • already downloaded, skipping")
+        # A module is "done" only once its README exists; run() writes that last,
+        # so a run interrupted mid-module correctly redownloads it.
+        done = not args.force and (sub / "README.md").exists()
+        ui_rule(f"{mid} {mname}", i, len(modules), note="skipped" if done else "")
+        if done:
             continue
 
         # Reuse run() wholesale: same args, retargeted at this module + folder.
