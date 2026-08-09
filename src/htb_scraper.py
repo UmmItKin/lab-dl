@@ -517,7 +517,7 @@ def run(args: argparse.Namespace) -> int:
     written.append(readme_path)
 
     if solo:
-        say(f"\n✓ Done. {len(written)} file(s) under {module_dir.relative_to(out_root)}/")
+        say(f"\n✓ Saved {len(written)} file(s) to {module_dir.resolve()}")
     else:
         # The transient bar wipes anything printed while it is live, so a
         # path run stashes the count and prints it after run() returns.
@@ -597,7 +597,8 @@ def run_path(args: argparse.Namespace) -> int:
             if run(sub_args) != 0:
                 failed.append(f"{mid} {mname}")
             else:
-                say(f"       ✓ {getattr(sub_args, '_written', 0)} files")
+                n = getattr(sub_args, "_written", 0)
+                say(f"      ✓ saved {n} file(s) to {sub.name}/")
         except (HTBAuthError, HTBNotFoundError, HTBAPIError) as e:
             say(f"  ✗ {e}", file=sys.stderr)
             failed.append(f"{mid} {mname}")
@@ -605,7 +606,7 @@ def run_path(args: argparse.Namespace) -> int:
     (path_dir / "README.md").write_text(
         _build_path_readme(path_id, info, modules), encoding="utf-8"
     )
-    say(f"\n✓ Path saved under {path_dir.name}/")
+    say(f"\n✓ The path saved to {path_dir.resolve()}")
     if failed:
         say(f"! {len(failed)} module(s) failed:", file=sys.stderr)
         for f in failed:

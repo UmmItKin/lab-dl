@@ -293,7 +293,7 @@ def run(args: argparse.Namespace) -> int:
     md = rewrite_images(md, assets_dir, http, cookie)
 
     out_file.write_text(md, encoding="utf-8")
-    say(f"\n✓ Wrote {out_file}")
+    say(f"\n✓ Saved to {out_file.resolve()}")
     return 0
 
 
