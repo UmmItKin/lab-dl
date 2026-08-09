@@ -25,6 +25,7 @@ uv sync
 ```bash
 uv run python main.py htb 293                 # HTB module by id or URL
 uv run python main.py thm csrfintroduction    # THM room by slug or URL
+uv run python main.py htb path 419            # whole job-role path, resumable (-y skips prompt)
 uv run python main.py htb 293 --dry-run       # check auth, write nothing
 ```
 

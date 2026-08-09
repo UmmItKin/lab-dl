@@ -427,9 +427,12 @@ def run(args: argparse.Namespace) -> int:
         say("\n--dry-run: not writing any files.")
         return 0
 
-    # Output directory.
+    # Output directory. A path run pre-sets args._module_dir so its modules
+    # nest under the path folder in curriculum order.
     out_root = Path(args.output)
-    module_dir = out_root / _module_dir_name(module_id, name)
+    module_dir = getattr(args, "_module_dir", None) or (
+        out_root / _module_dir_name(module_id, name)
+    )
     assets_dir = module_dir / "assets"
     module_dir.mkdir(parents=True, exist_ok=True)
 
@@ -510,6 +513,115 @@ def run(args: argparse.Namespace) -> int:
     return 0
 
 
+def _confirm(question: str, assume_yes: bool = False) -> bool:
+    """Ask [y/N] on the terminal. True when --yes, or when stdin isn't a TTY
+    (piped/cron runs can't answer, and blocking there would hang the job)."""
+    if assume_yes or not sys.stdin.isatty():
+        return True
+    try:
+        return input(f"{question} [y/N] ").strip().lower() in ("y", "yes")
+    except EOFError:
+        return False
+
+
+def run_path(args: argparse.Namespace) -> int:
+    """Download every module in a job-role path, in curriculum order."""
+    cookie = load_cookie(args)
+    path_id = int(re.sub(r"\D", "", args.target) or 0)
+    client = HTBClient(cookie=cookie, timeout=args.timeout)
+
+    say(f"→ Fetching path {path_id} metadata…")
+    try:
+        info = client.get_path(path_id)
+    except HTBAuthError:
+        # Same stale-cache retry as run(): expiry only shows up on rejection.
+        if args.cookie:
+            raise
+        say("  cookie rejected — re-grabbing from your browser…")
+        cookie = _grab_and_cache(
+            Path(args.cookie_file) if args.cookie_file else Path("cookies.txt")
+        )
+        client = HTBClient(cookie=cookie, timeout=args.timeout)
+        info = client.get_path(path_id)
+
+    title = info.get("title", f"Path {path_id}")
+    modules = info.get("modules") or []
+    say(f"  • {title} ({len(modules)} modules)")
+
+    ui_table(
+        ["#", "ID", "Module"],
+        [[i, m.get("id"), m.get("name", "")] for i, m in enumerate(modules, 1)],
+        title=f"{title} — {info.get('certification_acronym') or 'path'}",
+    )
+    if args.dry_run:
+        say("\n--dry-run: not writing any files.")
+        return 0
+
+    todo = len(modules)
+    if not _confirm(f"\nDownload {todo} module(s) into {args.output}/?", args.yes):
+        say("Aborted.")
+        return 0
+
+    path_dir = Path(args.output) / _module_dir_name(path_id, title)
+    path_dir.mkdir(parents=True, exist_ok=True)
+
+    failed: list[str] = []
+    for i, m in enumerate(modules, 1):
+        mid, mname = m.get("id"), m.get("name", f"Module {m.get('id')}")
+        sub = path_dir / f"{i:02d}-{_module_dir_name(mid, mname)}"
+        say(f"\n[{i}/{len(modules)}] {mid} {mname}")
+        if not args.force and (sub / "README.md").exists():
+            say("  • already downloaded, skipping")
+            continue
+
+        # Reuse run() wholesale: same args, retargeted at this module + folder.
+        sub_args = argparse.Namespace(**vars(args))
+        sub_args.target = str(mid)
+        sub_args._module_dir = sub
+        sub_args.cookie = cookie  # already resolved; skip the re-grab per module
+        try:
+            if run(sub_args) != 0:
+                failed.append(f"{mid} {mname}")
+        except (HTBAuthError, HTBNotFoundError, HTBAPIError) as e:
+            say(f"  ✗ {e}", file=sys.stderr)
+            failed.append(f"{mid} {mname}")
+
+    (path_dir / "README.md").write_text(
+        _build_path_readme(path_id, info, modules), encoding="utf-8"
+    )
+    say(f"\n✓ Path saved under {path_dir.name}/")
+    if failed:
+        say(f"! {len(failed)} module(s) failed:", file=sys.stderr)
+        for f in failed:
+            say(f"    {f}", file=sys.stderr)
+        return 1
+    return 0
+
+
+def _build_path_readme(path_id: int, info: dict, modules: list[dict]) -> str:
+    lines = [
+        f"# {info.get('title', path_id)}",
+        "",
+        f"- **Path ID:** {path_id}",
+        f"- **Certification:** {info.get('certification_acronym') or '-'}",
+        f"- **Difficulty:** {(info.get('difficulty') or {}).get('title', '-')}",
+        f"- **Modules:** {len(modules)}",
+        f"- **Sections:** {info.get('sections_count', '-')}",
+        f"- **Estimated time:** {info.get('estimated_time_of_completion', '-')}",
+        "",
+    ]
+    if info.get("summary"):
+        lines += ["## Summary", "", info["summary"].strip(), ""]
+    lines += ["## Modules", ""]
+    for i, m in enumerate(modules, 1):
+        d = f"{i:02d}-{_module_dir_name(m.get('id'), m.get('name', ''))}"
+        lines.append(f"{i}. [{m.get('name', '')}]({d}/README.md)")
+    lines.append("")
+    if info.get("conclusion"):
+        lines += ["## Conclusion", "", info["conclusion"].strip(), ""]
+    return "\n".join(lines)
+
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -579,13 +691,24 @@ def build_parser() -> argparse.ArgumentParser:
         "--quiet", action="store_true",
         help="Less verbose output.",
     )
+    p.add_argument(
+        "--force", action="store_true",
+        help="Path runs: redownload modules that are already on disk.",
+    )
+    p.add_argument(
+        "-y", "--yes", action="store_true",
+        help="Path runs: skip the confirmation prompt.",
+    )
     return p
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    # `htb path 419` downloads a whole job-role path; anything else is one module.
+    argv = list(sys.argv[1:] if argv is None else argv)
+    is_path = bool(argv) and argv[0] == "path"
+    args = build_parser().parse_args(argv[1:] if is_path else argv)
     try:
-        return run(args)
+        return run_path(args) if is_path else run(args)
     except KeyboardInterrupt:
         say("\nInterrupted.", file=sys.stderr)
         return 130

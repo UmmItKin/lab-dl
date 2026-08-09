@@ -93,6 +93,12 @@ class HTBClient:
             f"/api/v2/modules/{module_id}/sections/{section_id}"
         )
 
+    def get_path(self, path_id: int) -> dict:
+        """Job-role path metadata. `modules` holds the full module list in
+        curriculum order, so one call is enough to drive a whole path backup."""
+        self._referer = f"{HTB_BASE}/app/paths/{path_id}"
+        return self._get(f"/api/v2/paths/{path_id}")
+
     def get_walkthrough(self, walkthrough_id: int) -> dict:
         """Fetch a module's skill-assessment walkthrough (the 'Show solution'
         content). Returns the data dict with at least: id, module_id,

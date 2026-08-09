@@ -39,6 +39,8 @@ those to package-relative form.
 ```bash
 uv sync                                          # PEP-668 Arch env; never pip install system-wide
 uv run python main.py htb 293 --dry-run          # auth + section list, writes no files (first check)
+uv run python main.py htb path 419               # whole job-role path (CJCA = 419); prompts [y/N]
+uv run python main.py htb path 419 -y            # same, no prompt
 uv run python main.py htb 293                    # full download (auto-grabs cookie if no cookies.txt)
 uv run python main.py htb 293 --reload-cookie    # re-grab cookie from browser, overwrite cookies.txt
 uv run python main.py htb 23 --debug-json        # dump raw API JSON to find field names (e.g. walkthrough_id)
@@ -55,7 +57,8 @@ Python 3.9+ (`from __future__ import annotations` is used).
   owns endpoints, the mandatory `Referer: …/app/module/{id}` header, `Accept:
   application/json`, and unwrapping `payload.get("data", payload)`. Endpoints
   (all GET): `/api/v2/modules/{id}`, `/api/v3/modules/{id}/sections` (note v3),
-  `/api/v2/modules/{id}/sections/{sid}`, `/api/v2/walkthroughs/{wid}`.
+  `/api/v2/modules/{id}/sections/{sid}`, `/api/v2/walkthroughs/{wid}`,
+  `/api/v2/paths/{id}`.
 - `converter.py` never imports `htb_scraper`. It's pure: string in, string out,
   plus image downloads, which take a `requests.Session` and a cookie arg. Keep
   it import-cycle-free.
@@ -63,6 +66,13 @@ Python 3.9+ (`from __future__ import annotations` is used).
   cookies.sqlite (via browser_cookie3) and returns a cookie header string. It's
   imported lazily inside `_grab_and_cache` so the browser_cookie3 dependency
   stays optional; `--cookie` and cookies.txt still work without it.
+- Paths: `htb path <id>` calls `GET /api/v2/paths/{id}`, whose `modules` list is
+  the curriculum in order. `run_path()` loops it and reuses `run()` per module by
+  copying args and setting `_module_dir`, so the section, walkthrough and image
+  pipeline is not duplicated. Modules land in `NNN-Path/NN-<id>-Module/`, a module
+  with a README is skipped unless `--force`, and one failure doesn't abort the run.
+  It prompts `[y/N]` before writing; `-y` skips it, and a non-TTY stdin auto-
+  proceeds so piped runs don't hang.
 - `htb_scraper.py` orchestrates. It loads the cookie (file, flag, or browser
   grab), fetches metadata, checks the locked-content guard, then per section
   converts, rewrites images, and writes the file. Afterwards it optionally
