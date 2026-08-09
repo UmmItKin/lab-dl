@@ -108,7 +108,8 @@ Python 3.9+ (`from __future__ import annotations` is used).
   routes to the stderr console. `ui.table(columns, rows, title=…)` renders list
   output such as section and task listings, `ui.track(items, desc)` wraps a long
   loop in one live progress bar instead of a line per item, `ui.rule(title, i, n)`
-  prints one compact `i/n ███░░░ title` header per module in a path run (block
+  prints one compact `i/n ███░░░ title` header per module in a path run, behind
+  the same timestamp and tag columns as a log line (block
   glyphs, deliberately unlike `track()`'s `━`, so outer and inner bars don't look
   alike; a skipped module says so on that same line rather than a second one), and
   `ui.banner()` prints the wordmark once from `main.py`, and

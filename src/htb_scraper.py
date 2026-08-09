@@ -438,7 +438,7 @@ def run(args: argparse.Namespace) -> int:
         )
 
     if args.dry_run:
-        say("\n--dry-run: not writing any files.")
+        say("• --dry-run: not writing any files.")
         return 0
 
     # Output directory. A path run pre-sets args._module_dir so its modules
@@ -525,7 +525,7 @@ def run(args: argparse.Namespace) -> int:
     written.append(readme_path)
 
     if solo:
-        say(f"\n✓ Saved {len(written)} file(s) to {module_dir.resolve()}")
+        say(f"✓ Saved {len(written)} file(s) to {module_dir.resolve()}")
     else:
         # The transient bar wipes anything printed while it is live, so a
         # path run stashes the count and prints it after run() returns.
@@ -575,7 +575,7 @@ def run_path(args: argparse.Namespace) -> int:
         title=f"{title} — {info.get('certification_acronym') or 'path'}",
     )
     if args.dry_run:
-        say("\n--dry-run: not writing any files.")
+        say("• --dry-run: not writing any files.")
         return 0
 
     todo = len(modules)
@@ -615,7 +615,7 @@ def run_path(args: argparse.Namespace) -> int:
     (path_dir / "README.md").write_text(
         _build_path_readme(path_id, info, modules), encoding="utf-8"
     )
-    say(f"\n✓ The path saved to {path_dir.resolve()}")
+    say(f"✓ The path saved to {path_dir.resolve()}")
     if failed:
         say(f"! {len(failed)} module(s) failed:", file=sys.stderr)
         for f in failed:
@@ -624,7 +624,7 @@ def run_path(args: argparse.Namespace) -> int:
 
     # Offer an archive of the finished path. Skipped when modules failed, so we
     # never package a half-downloaded path.
-    if _confirm(f"\nArchive it to {path_dir.name}.tar.xz?", args.yes, default=False):
+    if _confirm(f"Archive it to {path_dir.name}.tar.xz?", args.yes, default=False):
         _archive(path_dir)
     return 0
 

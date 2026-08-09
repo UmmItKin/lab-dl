@@ -246,14 +246,16 @@ def rule(
         return
     width = 12
     done = round(width * current / total)
-    line = Text()
+    # Same leading columns as a log line, so this doesn't jut out to the left.
+    line = _tagged("INFO" if note else "ACTION", "")
     line.append(f"{current:>2}/{total} ", style="bold cyan")
     line.append("█" * done, style="green")
     line.append("░" * (width - done), style="bright_black")
-    line.append(f"  {title}", style="dim" if note else "bold")
+    line.append(f" {title}", style="dim" if note else "bold")
     if note:
-        line.append(f"  ({note})", style="dim")
-    _out.print(line)
+        line.append(f" ({note})", style="dim")
+    # no_wrap: a long module name folding onto a second line breaks the column.
+    _out.print(line, no_wrap=True, overflow="ellipsis")
 
 
 def demo() -> None:

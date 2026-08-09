@@ -277,7 +277,7 @@ def run(args: argparse.Namespace) -> int:
     )
 
     if args.dry_run:
-        say("\n--dry-run: not writing any files.")
+        say("• --dry-run: not writing any files.")
         return 0
 
     # Output: one .md per room.
@@ -293,7 +293,7 @@ def run(args: argparse.Namespace) -> int:
     md = rewrite_images(md, assets_dir, http, cookie)
 
     out_file.write_text(md, encoding="utf-8")
-    say(f"\n✓ Saved to {out_file.resolve()}")
+    say(f"✓ Saved to {out_file.resolve()}")
     return 0
 
 
