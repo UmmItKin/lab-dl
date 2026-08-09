@@ -89,9 +89,12 @@ Python 3.9+ (`from __future__ import annotations` is used).
 ## Critical conventions
 
 - Console output goes through `ui.say()`, not `print()`. It's a
-  print-compatible wrapper over Rich that derives the color from the line's
-  leading glyph (`→` cyan, `✓` green, `•` white, error lines red), so message
-  strings stay plain text and call sites pass no styles. Rich is deliberately
+  print-compatible wrapper over Rich that renders sqlmap-style
+  `[HH:MM:SS] [LEVEL] message` lines. The level comes from the line's leading
+  glyph (`→` and `•` INFO, `✓` SUCCESS, `!` WARNING, `✗` ERROR), which `say()`
+  strips because the tag replaces it, so message strings stay plain text and no
+  call site passes a level. A line with no glyph and no error keyword prints
+  untouched, which is what keeps tables and the `[y/N]` prompts clean. Rich is deliberately
   configured `markup=False, highlight=False, soft_wrap=True`: our output
   contains literal brackets (`[theory     ]`, `[!bash!]$`) that Rich markup
   would eat, and re-wrapping would break long paths. `say(..., file=sys.stderr)`

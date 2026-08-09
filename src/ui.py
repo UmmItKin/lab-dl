@@ -13,6 +13,7 @@ stdout isn't a TTY or NO_COLOR is set, so piping to a file stays clean.
 from __future__ import annotations
 
 import sys
+from datetime import datetime
 
 from rich import box
 from rich.console import Console
@@ -28,41 +29,70 @@ from rich.progress import (
 from rich.table import Table
 from rich.text import Text
 
+# sqlmap colors the level tag and leaves the message plain; the tag alone tells
+# you what kind of line it is.
+_LEVEL_STYLES = {
+    "DEBUG": "bright_black",
+    "INFO": "bold blue",
+    "SUCCESS": "bold green",
+    "WARNING": "bold yellow",
+    "ERROR": "bold red",
+    "CRITICAL": "bold white on red",
+}
+
 _out = Console(markup=False, highlight=False)
 _err = Console(markup=False, highlight=False, stderr=True)
 
-# Leading glyph → style. Matched against the line with indentation stripped.
-_GLYPH_STYLES = {
-    "→": "bold cyan",
-    "✓": "bold green",
-    "✗": "bold red",
-    "•": "white",
-    "!": "bold yellow",
+# Leading glyph → (sqlmap-style level, color). Call sites already start their
+# lines with one of these, so the level is derived here instead of touching
+# every say() in the scrapers.
+_GLYPH_LEVELS = {
+    "→": ("INFO", None),
+    "✓": ("SUCCESS", None),
+    "✗": ("ERROR", None),
+    "•": ("INFO", None),
+    "!": ("WARNING", None),
 }
 
 
-def _style_for(text: str) -> str | None:
+def _classify(text: str) -> tuple[str | None, str | None, str]:
+    """Split a message into (level, style, body). The body has the glyph and its
+    indentation stripped, since the [LEVEL] tag replaces them."""
     stripped = text.lstrip()
     if not stripped:
-        return None
-    style = _GLYPH_STYLES.get(stripped[0])
-    if style:
-        return style
+        return None, None, text
+    hit = _GLYPH_LEVELS.get(stripped[0])
+    if hit:
+        level, style = hit
+        return level, style, stripped[1:].strip()
     low = stripped.lower()
     if low.startswith(("error", "auth error", "not found", "api error")) or "error:" in low:
-        return "bold red"
+        return "ERROR", None, stripped
     if low.startswith(("warn", "skipped", "interrupted")):
-        return "yellow"
-    return None
+        return "WARNING", None, stripped
+    return None, None, text
 
 
 def say(*args, file=None, **kwargs) -> None:
-    """print()-compatible, colored by the line's leading glyph."""
+    """print()-compatible. Renders sqlmap-style `[HH:MM:SS] [LEVEL] message`."""
     console = _err if file is sys.stderr else _out
     text = " ".join(str(a) for a in args)
-    # soft_wrap: don't let Rich re-wrap at terminal width — plain print didn't,
-    # and wrapping would break long paths/URLs mid-token.
-    console.print(text, style=_style_for(text), soft_wrap=True, **kwargs)
+
+    # Keep leading blank lines as spacing, but classify the message itself.
+    lead = text[: len(text) - len(text.lstrip("\n"))]
+    body_in = text[len(lead) :]
+    level, style, body = _classify(body_in)
+
+    if level is None:
+        # No glyph and no error keyword: print as-is (tables, prompts, blanks).
+        console.print(text, style=style, soft_wrap=True, **kwargs)
+        return
+
+    line = Text(lead)
+    line.append(f"[{datetime.now():%H:%M:%S}] ", style="bright_black")
+    line.append(f"[{level}] ", style=_LEVEL_STYLES[level])
+    line.append(body, style=style)
+    console.print(line, soft_wrap=True, **kwargs)
 
 
 def table(columns: list[str], rows: list[list], title: str | None = None) -> None:
@@ -161,10 +191,14 @@ def demo() -> None:
                  "  • 15 section(s)", "     1. [theory     ] Overview",
                  "  auth error: HTTP 401", "Interrupted."]:
         say(line)
-    assert _style_for("→ x") == "bold cyan"
-    assert _style_for("  ✓ x") == "bold green"
-    assert _style_for("  auth error: 401") == "bold red"
-    assert _style_for("     1. [theory] Overview") is None  # brackets untouched
+    assert _classify("→ x")[0] == "INFO"
+    assert _classify("  ✓ x")[0] == "SUCCESS"
+    assert _classify("  ! x")[0] == "WARNING"
+    assert _classify("  auth error: 401")[0] == "ERROR"
+    # A glyph line loses its glyph; the [LEVEL] tag replaces it.
+    assert _classify("  ✓ wrote a.md")[2] == "wrote a.md"
+    # No glyph, no keyword: left alone so tables and prompts pass through.
+    assert _classify("     1. [theory] Overview")[0] is None
     table(["#", "Type", "Title"],
           [[1, "theory", "Overview"], [2, "interactive", "Pre-Engagement"]],
           title="Sections")
