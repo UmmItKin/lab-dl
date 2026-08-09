@@ -22,6 +22,7 @@ import argparse
 import json
 import re
 import sys
+import tarfile
 import time
 from pathlib import Path
 
@@ -525,11 +526,12 @@ def run(args: argparse.Namespace) -> int:
     return 0
 
 
-def _confirm(question: str, assume_yes: bool = False) -> bool:
-    """Ask [y/N] on the terminal. True when --yes, or when stdin isn't a TTY
-    (piped/cron runs can't answer, and blocking there would hang the job)."""
+def _confirm(question: str, assume_yes: bool = False, default: bool = True) -> bool:
+    """Ask [y/N] on the terminal. --yes and non-TTY stdin (piped/cron runs can't
+    answer, and blocking there would hang) fall back to `default`, which is why
+    optional extras like the archive pass default=False."""
     if assume_yes or not sys.stdin.isatty():
-        return True
+        return default
     try:
         return input(f"{question} [y/N] ").strip().lower() in ("y", "yes")
     except EOFError:
@@ -612,7 +614,24 @@ def run_path(args: argparse.Namespace) -> int:
         for f in failed:
             say(f"    {f}", file=sys.stderr)
         return 1
+
+    # Offer an archive of the finished path. Skipped when modules failed, so we
+    # never package a half-downloaded path.
+    if _confirm(f"\nArchive it to {path_dir.name}.tar.xz?", args.yes, default=False):
+        _archive(path_dir)
     return 0
+
+
+def _archive(path_dir: Path) -> Path:
+    """tar.xz the finished path next to its folder."""
+    # Not with_suffix(): it would eat anything after a dot in the folder name.
+    dest = path_dir.parent / f"{path_dir.name}.tar.xz"
+    say(f"→ Compressing to {dest.name}…")
+    with tarfile.open(dest, "w:xz") as tar:
+        tar.add(path_dir, arcname=path_dir.name)
+    size = dest.stat().st_size / 1_048_576
+    say(f"✓ Archived {size:.1f} MB to {dest.resolve()}")
+    return dest
 
 
 def _build_path_readme(path_id: int, info: dict, modules: list[dict]) -> str:

@@ -75,8 +75,11 @@ Python 3.9+ (`from __future__ import annotations` is used).
   its per-module table and chatter, so 20 modules print 20 lines, not 20 tables.
   The transient progress bar erases anything printed while it is live, so the
   file count is stashed on `args._written` and printed by `run_path` afterwards.
-  It prompts `[y/N]` before writing; `-y` skips it, and a non-TTY stdin auto-
-  proceeds so piped runs don't hang.
+  It prompts `[y/N]` before writing and again at the end to offer a `.tar.xz`
+  of the whole path. `_confirm(q, assume_yes, default)` backs both: `-y` and a
+  non-TTY stdin fall through to `default`, which is True for the download and
+  False for the archive, so an unattended run downloads but never compresses.
+  The archive is skipped when any module failed, so a half path is never packed.
 - `htb_scraper.py` orchestrates. It loads the cookie (file, flag, or browser
   grab), fetches metadata, checks the locked-content guard, then per section
   converts, rewrites images, and writes the file. Afterwards it optionally

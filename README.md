@@ -25,7 +25,7 @@ uv sync
 ```bash
 uv run python main.py htb 293                 # HTB module by id or URL
 uv run python main.py thm csrfintroduction    # THM room by slug or URL
-uv run python main.py htb path 419            # whole job-role path, resumable (-y skips prompt)
+uv run python main.py htb path 419            # whole job-role path, resumable (-y skips prompts)
 uv run python main.py htb 293 --dry-run       # check auth, write nothing
 ```
 
@@ -37,6 +37,10 @@ copy expires.
 
 To pass one in by hand instead, use `--cookie "htb_academy_session=..."` or put
 it in `cookies.txt` (see `cookies.txt.example`).
+
+A path run asks before it downloads, and again at the end whether to pack the
+result into a `.tar.xz` next to the folder. With `-y` it downloads without
+asking and skips the archive.
 
 ## Output
 

@@ -42,7 +42,7 @@ uv sync                                              # PEP-668 Arch box; never p
 
 uv run python main.py htb 293 --dry-run              # HTB: auth + section list, no files
 uv run python main.py htb 293                        # HTB: full download
-uv run python main.py htb path 419                   # HTB: whole path, prompts [y/N] (-y to skip)
+uv run python main.py htb path 419                   # HTB: whole path; prompts to download, then to tar.xz
 uv run python main.py thm csrfintroduction           # THM: room by slug (or full URL)
 uv run python main.py thm <room> --dry-run
 
