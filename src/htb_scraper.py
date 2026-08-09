@@ -29,7 +29,7 @@ import requests
 
 from htb_api import HTBAuthError, HTBClient, HTBNotFoundError, HTBAPIError
 from converter import content_to_markdown, rewrite_images
-from ui import say, table as ui_table
+from ui import rule as ui_rule, say, table as ui_table, track as ui_track
 
 
 # ---------------------------------------------------------------------------
@@ -439,8 +439,7 @@ def run(args: argparse.Namespace) -> int:
     http = requests.Session()
     written: list[Path] = []
 
-    for s in sections:
-        say(f"\n→ Section {s['num']}/{len(sections)}: {s['title']}")
+    for s in ui_track(sections, f"{name[:40]}"):
         client.set_referer(module_id)
         try:
             data = client.get_section_content(module_id, s["id"])
@@ -463,7 +462,6 @@ def run(args: argparse.Namespace) -> int:
         dest = module_dir / fname
         dest.write_text(section_md, encoding="utf-8")
         written.append(dest)
-        say(f"  ✓ wrote {dest.relative_to(out_root)}")
 
         if not args.no_jitter:
             time.sleep(1.5)
@@ -569,7 +567,7 @@ def run_path(args: argparse.Namespace) -> int:
     for i, m in enumerate(modules, 1):
         mid, mname = m.get("id"), m.get("name", f"Module {m.get('id')}")
         sub = path_dir / f"{i:02d}-{_module_dir_name(mid, mname)}"
-        say(f"\n[{i}/{len(modules)}] {mid} {mname}")
+        ui_rule(f"[{i}/{len(modules)}] {mid} {mname}")
         if not args.force and (sub / "README.md").exists():
             say("  • already downloaded, skipping")
             continue

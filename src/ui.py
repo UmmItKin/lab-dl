@@ -16,7 +16,16 @@ import sys
 
 from rich import box
 from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    TimeElapsedColumn,
+)
 from rich.table import Table
+from rich.text import Text
 
 _out = Console(markup=False, highlight=False)
 _err = Console(markup=False, highlight=False, stderr=True)
@@ -68,7 +77,39 @@ def table(columns: list[str], rows: list[list], title: str | None = None) -> Non
     _out.print(t)
 
 
+def track(items, description: str):
+    """Yield items behind a single self-updating progress bar.
+
+    Replaces a per-item `say()` line, which turns a 317-section path run into a
+    scrolling wall. Falls back to plain iteration when stdout isn't a TTY so
+    logs and pipes stay readable.
+    """
+    if not _out.is_terminal:
+        yield from items
+        return
+    with Progress(
+        SpinnerColumn(style="cyan"),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(complete_style="green", finished_style="green"),
+        MofNCompleteColumn(),
+        TimeElapsedColumn(),
+        console=_out,
+        transient=True,
+    ) as progress:
+        task = progress.add_task(description, total=len(items))
+        for item in items:
+            yield item
+            progress.advance(task)
+
+
+def rule(title: str) -> None:
+    """Horizontal separator, for marking a new module inside a path run."""
+    # markup=False on the console, so pass the style rather than inline tags.
+    _out.rule(Text(title, style="bold cyan"), style="cyan")
+
+
 def demo() -> None:
+    rule("02-289 Network Foundations")
     for line in ["→ Fetching module 90 metadata…", "  ✓ wrote 01-Intro.md",
                  "  • 15 section(s)", "     1. [theory     ] Overview",
                  "  auth error: HTTP 401", "Interrupted."]:
@@ -80,6 +121,7 @@ def demo() -> None:
     table(["#", "Type", "Title"],
           [[1, "theory", "Overview"], [2, "interactive", "Pre-Engagement"]],
           title="Sections")
+    assert list(track([1, 2, 3], "demo")) == [1, 2, 3]
     print("ui self-check passed")
 
 

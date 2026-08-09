@@ -89,7 +89,11 @@ Python 3.9+ (`from __future__ import annotations` is used).
   contains literal brackets (`[theory     ]`, `[!bash!]$`) that Rich markup
   would eat, and re-wrapping would break long paths. `say(..., file=sys.stderr)`
   routes to the stderr console. `ui.table(columns, rows, title=…)` renders list
-  output such as section and task listings. No emoji in output, only the plain
+  output such as section and task listings, `ui.track(items, desc)` wraps a long
+  loop in one live progress bar instead of a line per item, and `ui.rule(title)`
+  separates modules in a path run. `track` and `rule` fall back to plain output
+  when stdout isn't a TTY. Note the console has `markup=False`, so pass a
+  `rich.text.Text` with a style rather than inline `[bold]` tags. No emoji in output, only the plain
   glyphs `→ ✓ ✗ • !`.
 - HTB section bodies are Markdown with embedded HTML fragments, not pure HTML.
   Never pass the whole document through an HTML to Markdown engine (html2text

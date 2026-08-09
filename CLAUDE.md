@@ -18,7 +18,8 @@ offline study:
   `.md` file.
 
 Three modules are shared. `ui.py` provides `say()`, a colored drop-in for
-`print()`, plus `table()` for listings; output uses the glyphs `→ ✓ ✗ • !` and
+`print()`, plus `table()` for listings, `track()` for a progress bar over a
+long loop, and `rule()` for a section separator; output uses the glyphs `→ ✓ ✗ • !` and
 no emoji. `cookiejar.py` does the browser cookie grab for both platforms.
 `converter.py` exports `download_image`, `_split_code_and_text`, `_MD_IMG_RE`,
 and `_collapse_blanks`, which the THM scraper reuses, so don't reimplement them
