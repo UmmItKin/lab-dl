@@ -94,8 +94,8 @@ Python 3.9+ (`from __future__ import annotations` is used).
   glyph (`→` ACTION, `•` INFO, `✓` SUCCESS, `!` WARNING, `✗` ERROR), which `say()`
   strips because the tag replaces it, so message strings stay plain text and no
   call site passes a level. A line with no glyph and no error keyword prints
-  untouched, so the table bodies and progress bars stay unprefixed. Tags are
-  padded to a fixed width so every message starts in the same column.
+  untouched, so the table bodies and progress bars stay unprefixed. Exactly one space follows the tag; do not pad tags to a
+  fixed width, since aligning the bodies into a column reads like tab stops.
   `ui.ask()` prints an `[INPUT]` prompt (it writes the escape codes itself,
   because Rich's `print(end="")` did not reliably flush before `input()` blocks)
   and `_confirm` in the scraper goes through it, so prompts match the log lines.

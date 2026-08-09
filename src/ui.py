@@ -43,10 +43,6 @@ _LEVEL_STYLES = {
     "CRITICAL": "bold white on red",
 }
 
-# Pad to the widest tag actually emitted. Sizing this off _LEVEL_STYLES would
-# reserve room for [CRITICAL], which nothing prints, leaving a visible gap.
-_TAG_WIDTH = len("[WARNING]")
-
 _out = Console(markup=False, highlight=False)
 _err = Console(markup=False, highlight=False, stderr=True)
 
@@ -99,10 +95,11 @@ def say(*args, file=None, **kwargs) -> None:
 
 
 def _tagged(level: str, body: str, lead: str = "", style: str | None = None) -> Text:
-    """`[HH:MM:SS] [LEVEL] body`, with the tag padded so bodies align."""
+    """`[HH:MM:SS] [LEVEL] body`. One space after the tag, never padding: lining
+    the bodies up in a column reads like tab stops rather than a log."""
     line = Text(lead)
     line.append(f"[{datetime.now():%H:%M:%S}] ", style="bright_black")
-    line.append(f"[{level}]".ljust(_TAG_WIDTH) + " ", style=_LEVEL_STYLES[level])
+    line.append(f"[{level}] ", style=_LEVEL_STYLES[level])
     line.append(body, style=style)
     return line
 
@@ -117,7 +114,7 @@ def ask(question: str) -> str:
     # land before input() blocks, which left the question invisible.
     sys.stdout.write(
         f"{lead}\033[90m[{datetime.now():%H:%M:%S}]\033[0m "
-        f"\033[1;35m{'[INPUT]'.ljust(_TAG_WIDTH)}\033[0m {question} "
+        f"\033[1;35m[INPUT]\033[0m {question} "
     )
     sys.stdout.flush()
     try:
@@ -157,8 +154,7 @@ def _progress_columns(tail):
 
 
 def _tag_fields() -> dict:
-    return {"stamp": f"[{datetime.now():%H:%M:%S}]",
-            "tag": "[ACTION]".ljust(_TAG_WIDTH)}
+    return {"stamp": f"[{datetime.now():%H:%M:%S}]", "tag": "[ACTION]"}
 
 
 def track(items, description: str):
