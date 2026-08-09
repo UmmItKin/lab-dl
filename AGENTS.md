@@ -113,7 +113,9 @@ Python 3.9+ (`from __future__ import annotations` is used).
   alike; a skipped module says so on that same line rather than a second one), and
   `ui.banner()` prints the wordmark once from `main.py`, and
   `ui.bytes_progress(desc, total)` gives a byte-based bar for work with no item
-  count to iterate, which is what the tar.xz archiving uses. `track` and `rule` fall back to plain output
+  count to iterate, which is what the tar.xz archiving uses. Both bars start
+  with the same `[HH:MM:SS] [ACTION]` columns as a log line (see
+  `_progress_columns`), so a live bar lines up with the messages around it. `track` and `rule` fall back to plain output
   when stdout isn't a TTY. Note the console has `markup=False`, so pass a
   `rich.text.Text` with a style rather than inline `[bold]` tags. No emoji in output, only the plain
   glyphs `→ ✓ ✗ • !`.

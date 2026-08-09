@@ -579,7 +579,7 @@ def run_path(args: argparse.Namespace) -> int:
         return 0
 
     todo = len(modules)
-    if not _confirm(f"\nDownload {todo} module(s) into {args.output}/?", args.yes):
+    if not _confirm(f"Download {todo} module(s) into {args.output}/?", args.yes):
         say("Aborted.")
         return 0
 

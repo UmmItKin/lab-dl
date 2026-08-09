@@ -43,8 +43,9 @@ _LEVEL_STYLES = {
     "CRITICAL": "bold white on red",
 }
 
-# The tag width every line pads to, so the messages line up in a column.
-_TAG_WIDTH = max(len(level) for level in _LEVEL_STYLES) + 2  # [] around it
+# Pad to the widest tag actually emitted. Sizing this off _LEVEL_STYLES would
+# reserve room for [CRITICAL], which nothing prints, leaving a visible gap.
+_TAG_WIDTH = len("[WARNING]")
 
 _out = Console(markup=False, highlight=False)
 _err = Console(markup=False, highlight=False, stderr=True)
@@ -140,6 +141,26 @@ def table(columns: list[str], rows: list[list], title: str | None = None) -> Non
     _out.print(t)
 
 
+def _progress_columns(tail):
+    """Shared bar layout. The leading columns mimic a `[HH:MM:SS] [ACTION]` log
+    line so a live bar sits in the same columns as the messages around it."""
+    # No SpinnerColumn: the [ACTION] tag already marks this as work in progress,
+    # and every extra column steals width from the bar itself.
+    return [
+        TextColumn("{task.fields[stamp]}", style="bright_black"),
+        TextColumn("{task.fields[tag]}", style="bold cyan"),
+        TextColumn("{task.description}", style="none"),
+        BarColumn(bar_width=24, complete_style="green", finished_style="green"),
+        *tail,
+        TimeElapsedColumn(),
+    ]
+
+
+def _tag_fields() -> dict:
+    return {"stamp": f"[{datetime.now():%H:%M:%S}]",
+            "tag": "[ACTION]".ljust(_TAG_WIDTH)}
+
+
 def track(items, description: str):
     """Yield items behind a single self-updating progress bar.
 
@@ -151,15 +172,11 @@ def track(items, description: str):
         yield from items
         return
     with Progress(
-        SpinnerColumn(style="cyan"),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(complete_style="green", finished_style="green"),
-        MofNCompleteColumn(),
-        TimeElapsedColumn(),
+        *_progress_columns([MofNCompleteColumn()]),
         console=_out,
         transient=True,
     ) as progress:
-        task = progress.add_task(description, total=len(items))
+        task = progress.add_task(description, total=len(items), **_tag_fields())
         for item in items:
             yield item
             progress.advance(task)
@@ -179,15 +196,11 @@ def bytes_progress(description: str, total: int):
             yield lambda _n: None
             return
         with Progress(
-            SpinnerColumn(style="cyan"),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(complete_style="green", finished_style="green"),
-            DownloadColumn(),
-            TimeElapsedColumn(),
+            *_progress_columns([DownloadColumn()]),
             console=_out,
             transient=True,
         ) as progress:
-            task = progress.add_task(description, total=total)
+            task = progress.add_task(description, total=total, **_tag_fields())
             yield lambda n: progress.advance(task, n)
 
     return _run()
