@@ -344,7 +344,10 @@ def run(args: argparse.Namespace) -> int:
     client = HTBClient(cookie=cookie, timeout=args.timeout)
     client.set_referer(module_id)
 
-    say(f"→ Fetching module {module_id} metadata…")
+    # A path run presets _module_dir; then the per-module chatter is just noise.
+    solo = getattr(args, "_module_dir", None) is None
+    if solo:
+        say(f"→ Fetching module {module_id} metadata…")
     try:
         info = client.get_module(module_id)
     except HTBAuthError as e:
@@ -370,7 +373,8 @@ def run(args: argparse.Namespace) -> int:
         return 3
 
     name = info.get("name", f"Module {module_id}")
-    say(f"  • {name}")
+    if solo:
+        say(f"  • {name}")
 
     # --debug-json: dump raw API responses so we can discover field names
     # (e.g. walkthrough_id) without guessing. Writes nothing.
@@ -402,7 +406,8 @@ def run(args: argparse.Namespace) -> int:
         )
         return 4
 
-    say(f"→ Fetching section list…")
+    if solo:
+        say("→ Fetching section list…")
     sections = client.get_sections(module_id)
     info["_section_count"] = [None] * len(sections)  # for frontmatter num/total
     if not sections:
@@ -417,11 +422,12 @@ def run(args: argparse.Namespace) -> int:
                   file=sys.stderr)
             return 6
 
-    ui_table(
-        ["#", "Type", "Title"],
-        [[s["num"], s.get("type", ""), s["title"]] for s in sections],
-        title=f"{name} — {len(sections)} section(s)",
-    )
+    if solo:
+        ui_table(
+            ["#", "Type", "Title"],
+            [[s["num"], s.get("type", ""), s["title"]] for s in sections],
+            title=f"{name} — {len(sections)} section(s)",
+        )
 
     if args.dry_run:
         say("\n--dry-run: not writing any files.")
@@ -475,11 +481,13 @@ def run(args: argparse.Namespace) -> int:
     if not args.no_walkthrough:
         wid = info.get("walkthrough_id")
         if not wid:
-            say("\n→ No walkthrough_id found on module (module may have no "
+            if solo:
+                say("\n→ No walkthrough_id found on module (module may have no "
                   "skill assessment, or the field has a different name). "
-                  "Skipping. Run with --debug-json to inspect available fields.")
+                      "Skipping. Run with --debug-json to inspect available fields.")
         else:
-            say(f"\n→ Fetching walkthrough {wid}…")
+            if solo:
+                say(f"\n→ Fetching walkthrough {wid}…")
             try:
                 wd = client.get_walkthrough(int(wid))
                 raw_w = (wd or {}).get("instructions", "") or ""
@@ -499,7 +507,8 @@ def run(args: argparse.Namespace) -> int:
                 dest_w = module_dir / walkthrough_fname
                 dest_w.write_text(section_md_w, encoding="utf-8")
                 written.append(dest_w)
-                say(f"  ✓ wrote {dest_w.relative_to(out_root)}")
+                if solo:
+                    say(f"  ✓ wrote {dest_w.relative_to(out_root)}")
 
     # Module-level README with TOC.
     readme = build_readme(module_id, info, sections, walkthrough_fname)
@@ -507,7 +516,12 @@ def run(args: argparse.Namespace) -> int:
     readme_path.write_text(readme, encoding="utf-8")
     written.append(readme_path)
 
-    say(f"\n✓ Done. {len(written)} file(s) under {module_dir.relative_to(out_root)}/")
+    if solo:
+        say(f"\n✓ Done. {len(written)} file(s) under {module_dir.relative_to(out_root)}/")
+    else:
+        # The transient bar wipes anything printed while it is live, so a
+        # path run stashes the count and prints it after run() returns.
+        args._written = len(written)
     return 0
 
 
@@ -580,6 +594,8 @@ def run_path(args: argparse.Namespace) -> int:
         try:
             if run(sub_args) != 0:
                 failed.append(f"{mid} {mname}")
+            else:
+                say(f"       ✓ {getattr(sub_args, '_written', 0)} files")
         except (HTBAuthError, HTBNotFoundError, HTBAPIError) as e:
             say(f"  ✗ {e}", file=sys.stderr)
             failed.append(f"{mid} {mname}")

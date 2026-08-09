@@ -71,6 +71,10 @@ Python 3.9+ (`from __future__ import annotations` is used).
   copying args and setting `_module_dir`, so the section, walkthrough and image
   pipeline is not duplicated. Modules land in `NNN-Path/NN-<id>-Module/`, a module
   with a README is skipped unless `--force`, and one failure doesn't abort the run.
+  `run()` checks `_module_dir` to tell a path run from a solo one and suppresses
+  its per-module table and chatter, so 20 modules print 20 lines, not 20 tables.
+  The transient progress bar erases anything printed while it is live, so the
+  file count is stashed on `args._written` and printed by `run_path` afterwards.
   It prompts `[y/N]` before writing; `-y` skips it, and a non-TTY stdin auto-
   proceeds so piped runs don't hang.
 - `htb_scraper.py` orchestrates. It loads the cookie (file, flag, or browser
@@ -91,7 +95,7 @@ Python 3.9+ (`from __future__ import annotations` is used).
   routes to the stderr console. `ui.table(columns, rows, title=…)` renders list
   output such as section and task listings, `ui.track(items, desc)` wraps a long
   loop in one live progress bar instead of a line per item, `ui.rule(title, i, n)`
-  separates modules in a path run and draws a static overall bar, and
+  prints one compact `[i/n] ━━━ title` header per module in a path run, and
   `ui.banner()` prints the wordmark once from `main.py`. `track` and `rule` fall back to plain output
   when stdout isn't a TTY. Note the console has `markup=False`, so pass a
   `rich.text.Text` with a style rather than inline `[bold]` tags. No emoji in output, only the plain

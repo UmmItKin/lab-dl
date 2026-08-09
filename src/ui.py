@@ -125,18 +125,22 @@ def banner(subtitle: str = "") -> None:
 
 
 def rule(title: str, current: int | None = None, total: int | None = None) -> None:
-    """Separator between modules in a path run. With current/total it also draws
-    a static bar, so the overall progress stays visible between section bars."""
-    # markup=False on the console, so pass the style rather than inline tags.
-    _out.rule(Text(title, style="bold cyan"), style="cyan")
+    """One compact header per module in a path run: position, bar, then title.
+
+    A full-width Rich rule plus a separate bar was too loud repeated 20 times,
+    so this is a single line that still answers "where am I".
+    """
     if current is None or not total:
+        # markup=False on the console, so pass the style, not inline tags.
+        _out.rule(Text(title, style="bold cyan"), style="cyan")
         return
-    width = 34
+    width = 18
     done = round(width * current / total)
-    line = Text("  overall ", style="dim")
+    line = Text()
+    line.append(f"[{current:>2}/{total}] ", style="bold cyan")
     line.append("━" * done, style="green")
     line.append("━" * (width - done), style="bright_black")
-    line.append(f" {current}/{total}", style="dim")
+    line.append(f"  {title}", style="bold")
     _out.print(line)
 
 
