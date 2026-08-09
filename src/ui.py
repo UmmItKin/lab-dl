@@ -20,6 +20,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.progress import (
     BarColumn,
+    DownloadColumn,
     MofNCompleteColumn,
     Progress,
     SpinnerColumn,
@@ -34,11 +35,16 @@ from rich.text import Text
 _LEVEL_STYLES = {
     "DEBUG": "bright_black",
     "INFO": "bold blue",
+    "ACTION": "bold cyan",
+    "INPUT": "bold magenta",
     "SUCCESS": "bold green",
     "WARNING": "bold yellow",
     "ERROR": "bold red",
     "CRITICAL": "bold white on red",
 }
+
+# The tag width every line pads to, so the messages line up in a column.
+_TAG_WIDTH = max(len(level) for level in _LEVEL_STYLES) + 2  # [] around it
 
 _out = Console(markup=False, highlight=False)
 _err = Console(markup=False, highlight=False, stderr=True)
@@ -47,7 +53,7 @@ _err = Console(markup=False, highlight=False, stderr=True)
 # lines with one of these, so the level is derived here instead of touching
 # every say() in the scrapers.
 _GLYPH_LEVELS = {
-    "→": ("INFO", None),
+    "→": ("ACTION", None),
     "✓": ("SUCCESS", None),
     "✗": ("ERROR", None),
     "•": ("INFO", None),
@@ -88,18 +94,44 @@ def say(*args, file=None, **kwargs) -> None:
         console.print(text, style=style, soft_wrap=True, **kwargs)
         return
 
+    console.print(_tagged(level, body, lead, style), soft_wrap=True, **kwargs)
+
+
+def _tagged(level: str, body: str, lead: str = "", style: str | None = None) -> Text:
+    """`[HH:MM:SS] [LEVEL] body`, with the tag padded so bodies align."""
     line = Text(lead)
     line.append(f"[{datetime.now():%H:%M:%S}] ", style="bright_black")
-    line.append(f"[{level}] ", style=_LEVEL_STYLES[level])
+    line.append(f"[{level}]".ljust(_TAG_WIDTH) + " ", style=_LEVEL_STYLES[level])
     line.append(body, style=style)
-    console.print(line, soft_wrap=True, **kwargs)
+    return line
+
+
+def ask(question: str) -> str:
+    """Prompt with an [INPUT] tag, matching the log lines around it."""
+    # Leading newlines are spacing from the call site; emit them before the tag
+    # so the question stays on the same line as [INPUT].
+    lead = question[: len(question) - len(question.lstrip("\n"))]
+    question = question[len(lead) :]
+    # Write the prompt ourselves and flush: Rich's print(end="") doesn't reliably
+    # land before input() blocks, which left the question invisible.
+    sys.stdout.write(
+        f"{lead}\033[90m[{datetime.now():%H:%M:%S}]\033[0m "
+        f"\033[1;35m{'[INPUT]'.ljust(_TAG_WIDTH)}\033[0m {question} "
+    )
+    sys.stdout.flush()
+    try:
+        return input()
+    except EOFError:
+        return ""
 
 
 def table(columns: list[str], rows: list[list], title: str | None = None) -> None:
     """Print a bordered table. Cells are rendered as plain text (no markup), so
-    values containing brackets are safe."""
-    t = Table(title=title, box=box.ROUNDED, header_style="bold cyan",
-              title_style="bold", title_justify="left")
+    values containing brackets are safe. The title is printed as a tagged log
+    line rather than Rich's own title, so it matches the surrounding output."""
+    if title:
+        _out.print(_tagged("INFO", title), soft_wrap=True)
+    t = Table(box=box.ROUNDED, header_style="bold cyan")
     for i, col in enumerate(columns):
         # First column is usually a number/id: right-align it, keep it narrow.
         t.add_column(col, justify="right" if i == 0 else "left", no_wrap=(i == 0))
@@ -131,6 +163,34 @@ def track(items, description: str):
         for item in items:
             yield item
             progress.advance(task)
+
+
+def bytes_progress(description: str, total: int):
+    """Context manager yielding an `advance(n_bytes)` callback under a size bar.
+
+    tar.xz has no item count to iterate, so `track()` doesn't fit; this reports
+    bytes read from the source tree instead.
+    """
+    from contextlib import contextmanager
+
+    @contextmanager
+    def _run():
+        if not _out.is_terminal:
+            yield lambda _n: None
+            return
+        with Progress(
+            SpinnerColumn(style="cyan"),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(complete_style="green", finished_style="green"),
+            DownloadColumn(),
+            TimeElapsedColumn(),
+            console=_out,
+            transient=True,
+        ) as progress:
+            task = progress.add_task(description, total=total)
+            yield lambda n: progress.advance(task, n)
+
+    return _run()
 
 
 # Hardcoded wordmark: pyfiglet would be a whole dependency for one string.
@@ -191,7 +251,7 @@ def demo() -> None:
                  "  • 15 section(s)", "     1. [theory     ] Overview",
                  "  auth error: HTTP 401", "Interrupted."]:
         say(line)
-    assert _classify("→ x")[0] == "INFO"
+    assert _classify("→ x")[0] == "ACTION"   # → means "doing it now"
     assert _classify("  ✓ x")[0] == "SUCCESS"
     assert _classify("  ! x")[0] == "WARNING"
     assert _classify("  auth error: 401")[0] == "ERROR"
@@ -203,6 +263,8 @@ def demo() -> None:
           [[1, "theory", "Overview"], [2, "interactive", "Pre-Engagement"]],
           title="Sections")
     assert list(track([1, 2, 3], "demo")) == [1, 2, 3]
+    with bytes_progress("demo", 10) as advance:
+        advance(10)
     print("ui self-check passed")
 
 

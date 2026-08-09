@@ -91,10 +91,16 @@ Python 3.9+ (`from __future__ import annotations` is used).
 - Console output goes through `ui.say()`, not `print()`. It's a
   print-compatible wrapper over Rich that renders sqlmap-style
   `[HH:MM:SS] [LEVEL] message` lines. The level comes from the line's leading
-  glyph (`→` and `•` INFO, `✓` SUCCESS, `!` WARNING, `✗` ERROR), which `say()`
+  glyph (`→` ACTION, `•` INFO, `✓` SUCCESS, `!` WARNING, `✗` ERROR), which `say()`
   strips because the tag replaces it, so message strings stay plain text and no
   call site passes a level. A line with no glyph and no error keyword prints
-  untouched, which is what keeps tables and the `[y/N]` prompts clean.
+  untouched, so the table bodies and progress bars stay unprefixed. Tags are
+  padded to a fixed width so every message starts in the same column.
+  `ui.ask()` prints an `[INPUT]` prompt (it writes the escape codes itself,
+  because Rich's `print(end="")` did not reliably flush before `input()` blocks)
+  and `_confirm` in the scraper goes through it, so prompts match the log lines.
+  `ui.table()` prints its title as a tagged `[INFO]` line rather than using
+  Rich's own title, for the same reason.
   Rich is deliberately
   configured `markup=False, highlight=False, soft_wrap=True`: our output
   contains literal brackets (`[theory     ]`, `[!bash!]$`) that Rich markup
@@ -105,7 +111,9 @@ Python 3.9+ (`from __future__ import annotations` is used).
   prints one compact `i/n ███░░░ title` header per module in a path run (block
   glyphs, deliberately unlike `track()`'s `━`, so outer and inner bars don't look
   alike; a skipped module says so on that same line rather than a second one), and
-  `ui.banner()` prints the wordmark once from `main.py`. `track` and `rule` fall back to plain output
+  `ui.banner()` prints the wordmark once from `main.py`, and
+  `ui.bytes_progress(desc, total)` gives a byte-based bar for work with no item
+  count to iterate, which is what the tar.xz archiving uses. `track` and `rule` fall back to plain output
   when stdout isn't a TTY. Note the console has `markup=False`, so pass a
   `rich.text.Text` with a style rather than inline `[bold]` tags. No emoji in output, only the plain
   glyphs `→ ✓ ✗ • !`.

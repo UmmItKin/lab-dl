@@ -30,7 +30,14 @@ import requests
 
 from htb_api import HTBAuthError, HTBClient, HTBNotFoundError, HTBAPIError
 from converter import content_to_markdown, rewrite_images
-from ui import rule as ui_rule, say, table as ui_table, track as ui_track
+from ui import (
+    ask as ui_ask,
+    bytes_progress as ui_bytes_progress,
+    rule as ui_rule,
+    say,
+    table as ui_table,
+    track as ui_track,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -533,7 +540,7 @@ def _confirm(question: str, assume_yes: bool = False, default: bool = True) -> b
     if assume_yes or not sys.stdin.isatty():
         return default
     try:
-        return input(f"{question} [y/N] ").strip().lower() in ("y", "yes")
+        return ui_ask(f"{question} [y/N]").strip().lower() in ("y", "yes")
     except EOFError:
         return False
 
@@ -626,9 +633,17 @@ def _archive(path_dir: Path) -> Path:
     """tar.xz the finished path next to its folder."""
     # Not with_suffix(): it would eat anything after a dot in the folder name.
     dest = path_dir.parent / f"{path_dir.name}.tar.xz"
-    say(f"→ Compressing to {dest.name}…")
-    with tarfile.open(dest, "w:xz") as tar:
-        tar.add(path_dir, arcname=path_dir.name)
+    # xz on a few hundred MB is slow enough to need feedback, so report bytes
+    # consumed from the source tree as each file is added.
+    total = sum(f.stat().st_size for f in path_dir.rglob("*") if f.is_file())
+    say(f"→ Compressing {total / 1_048_576:.0f} MB to {dest.name}…")
+    with ui_bytes_progress(f"packing {path_dir.name}", total) as advance:
+        with tarfile.open(dest, "w:xz") as tar:
+            for item in sorted(path_dir.rglob("*")):
+                tar.add(item, arcname=str(item.relative_to(path_dir.parent)),
+                        recursive=False)
+                if item.is_file():
+                    advance(item.stat().st_size)
     size = dest.stat().st_size / 1_048_576
     say(f"✓ Archived {size:.1f} MB to {dest.resolve()}")
     return dest
