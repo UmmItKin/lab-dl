@@ -16,6 +16,7 @@ import sys
 
 from rich import box
 from rich.console import Console
+from rich.panel import Panel
 from rich.progress import (
     BarColumn,
     MofNCompleteColumn,
@@ -102,14 +103,46 @@ def track(items, description: str):
             progress.advance(task)
 
 
-def rule(title: str) -> None:
-    """Horizontal separator, for marking a new module inside a path run."""
+# Hardcoded wordmark: pyfiglet would be a whole dependency for one string.
+_BANNER = r"""
+██╗      █████╗ ██████╗   ██████╗ ██╗
+██║     ██╔══██╗██╔══██╗  ██╔══██╗██║
+██║     ███████║██████╔╝  ██║  ██║██║
+██║     ██╔══██║██╔══██╗  ██║  ██║██║
+███████╗██║  ██║██████╔╝  ██████╔╝███████╗
+╚══════╝╚═╝  ╚═╝╚═════╝   ╚═════╝ ╚══════╝
+"""
+
+
+def banner(subtitle: str = "") -> None:
+    """Print the lab-dl wordmark. Skipped on a non-TTY so logs stay clean."""
+    if not _out.is_terminal:
+        return
+    art = Text(_BANNER.strip("\n"), style="bold green")
+    if subtitle:
+        art.append(f"\n {subtitle}", style="dim cyan")
+    _out.print(Panel(art, box=box.ROUNDED, border_style="green", expand=False))
+
+
+def rule(title: str, current: int | None = None, total: int | None = None) -> None:
+    """Separator between modules in a path run. With current/total it also draws
+    a static bar, so the overall progress stays visible between section bars."""
     # markup=False on the console, so pass the style rather than inline tags.
     _out.rule(Text(title, style="bold cyan"), style="cyan")
+    if current is None or not total:
+        return
+    width = 34
+    done = round(width * current / total)
+    line = Text("  overall ", style="dim")
+    line.append("━" * done, style="green")
+    line.append("━" * (width - done), style="bright_black")
+    line.append(f" {current}/{total}", style="dim")
+    _out.print(line)
 
 
 def demo() -> None:
-    rule("02-289 Network Foundations")
+    banner("HTB Academy + TryHackMe -> Markdown")
+    rule("[2/20] 289 Network Foundations", 2, 20)
     for line in ["→ Fetching module 90 metadata…", "  ✓ wrote 01-Intro.md",
                  "  • 15 section(s)", "     1. [theory     ] Overview",
                  "  auth error: HTTP 401", "Interrupted."]:

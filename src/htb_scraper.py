@@ -567,7 +567,7 @@ def run_path(args: argparse.Namespace) -> int:
     for i, m in enumerate(modules, 1):
         mid, mname = m.get("id"), m.get("name", f"Module {m.get('id')}")
         sub = path_dir / f"{i:02d}-{_module_dir_name(mid, mname)}"
-        ui_rule(f"[{i}/{len(modules)}] {mid} {mname}")
+        ui_rule(f"{mid} {mname}", i, len(modules))
         if not args.force and (sub / "README.md").exists():
             say("  • already downloaded, skipping")
             continue

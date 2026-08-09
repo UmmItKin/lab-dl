@@ -90,8 +90,9 @@ Python 3.9+ (`from __future__ import annotations` is used).
   would eat, and re-wrapping would break long paths. `say(..., file=sys.stderr)`
   routes to the stderr console. `ui.table(columns, rows, title=…)` renders list
   output such as section and task listings, `ui.track(items, desc)` wraps a long
-  loop in one live progress bar instead of a line per item, and `ui.rule(title)`
-  separates modules in a path run. `track` and `rule` fall back to plain output
+  loop in one live progress bar instead of a line per item, `ui.rule(title, i, n)`
+  separates modules in a path run and draws a static overall bar, and
+  `ui.banner()` prints the wordmark once from `main.py`. `track` and `rule` fall back to plain output
   when stdout isn't a TTY. Note the console has `markup=False`, so pass a
   `rich.text.Text` with a style rather than inline `[bold]` tags. No emoji in output, only the plain
   glyphs `→ ✓ ✗ • !`.

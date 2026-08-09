@@ -42,6 +42,8 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
+    from ui import banner
+    banner("HTB Academy + TryHackMe -> Markdown")
     module = importlib.import_module(module_name)
     return module.main(rest)
 
