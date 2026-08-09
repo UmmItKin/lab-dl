@@ -21,7 +21,7 @@ src/
   thm_scraper.py # THM orchestration
   htb_api.py     # HTBClient: the 4 API endpoints, headers, {"data":…} unwrapping, auth errors
   thm_api.py     # THMClient: the rooms/tasks endpoint
-  ui.py          # say() + table(): colored console output (rich); color picked from the line's leading glyph
+  ui.py          # say(): sqlmap-style [time] [LEVEL] output, plus table/track/rule/banner
   converter.py   # content cleanup + HTML-fragment→Markdown + image download (CDN fallback)
   cookiejar.py   # auto-grab cookies from a local Firefox-based browser profile
 test_thm.py      # self-check; adds src/ to sys.path so it can import the modules
@@ -94,7 +94,8 @@ Python 3.9+ (`from __future__ import annotations` is used).
   glyph (`→` and `•` INFO, `✓` SUCCESS, `!` WARNING, `✗` ERROR), which `say()`
   strips because the tag replaces it, so message strings stay plain text and no
   call site passes a level. A line with no glyph and no error keyword prints
-  untouched, which is what keeps tables and the `[y/N]` prompts clean. Rich is deliberately
+  untouched, which is what keeps tables and the `[y/N]` prompts clean.
+  Rich is deliberately
   configured `markup=False, highlight=False, soft_wrap=True`: our output
   contains literal brackets (`[theory     ]`, `[!bash!]$`) that Rich markup
   would eat, and re-wrapping would break long paths. `say(..., file=sys.stderr)`
