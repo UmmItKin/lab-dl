@@ -103,6 +103,15 @@ show the diff and let the user review before committing. Commit messages are
 one line: a Conventional Commits prefix (`feat:`, `fix:`, `docs:`, …) and a
 short subject, no body.
 
+## Comments
+
+Keep code comments light. A module gets a one-line docstring saying what it is,
+not a multi-paragraph essay on how it works. Skip the inline comment that just
+restates the line below it; write comments only where the reason isn't obvious
+from the code (a non-obvious workaround, an API quirk, a deliberate corner cut).
+Match the density of the file you're editing, and don't add a new "一大段" block
+where a short line does.
+
 ## Writing style
 
 All English prose in this repo (docs, READMEs, chat replies, user-facing
