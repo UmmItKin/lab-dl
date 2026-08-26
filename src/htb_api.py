@@ -127,9 +127,8 @@ class HTBClient:
         # Auth failures: 401/403, or a redirect back to login.
         if resp.status_code in (401, 403):
             raise HTBAuthError(
-                f"HTB rejected the request (HTTP {resp.status_code}). "
-                "Your cookie is likely missing or expired — re-copy "
-                "htb_academy_session from your browser."
+                f"HTB rejected the request (HTTP {resp.status_code}) — "
+                "module not available on your plan, or the cookie expired."
             )
         if resp.is_redirect and "login" in resp.headers.get("Location", "").lower():
             raise HTBAuthError(
