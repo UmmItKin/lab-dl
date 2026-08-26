@@ -115,7 +115,7 @@ _CARD_RE = re.compile(
 )
 _IMG_RE = re.compile(r"<img\b[^>]*?>", re.IGNORECASE)
 _IMG_ATTR_RE = re.compile(
-    r'(src|alt|title)\s*=\s*"([^"]*)"', re.IGNORECASE
+    r'(src|alt)\s*=\s*"([^"]*)"', re.IGNORECASE
 )
 _TAG_RE = re.compile(
     r"</?(strong|b|em|i|code|p|br|hr|a|ul|ol|li|h[1-6]|blockquote)\b[^>]*>",
@@ -370,7 +370,6 @@ def rewrite_images(
     assets_dir: Path,
     session: requests.Session,
     cookie: str,
-    quiet: bool = False,
 ) -> str:
     """Find every Markdown image, download it, and rewrite the link to the local
     relative path. Runs only outside fenced code blocks."""

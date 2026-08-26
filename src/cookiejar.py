@@ -115,7 +115,6 @@ def grab_cookie(
     domain: str,
     label: str = "the site",
     login_url: str = "",
-    verbose: bool = True,
 ) -> str:
     """Scan local Firefox-based browser profiles and return the
     `<cookie_name>=<value>` header string for the given domain.
@@ -145,8 +144,7 @@ def grab_cookie(
             "Either install Floorp/Firefox/LibreWolf/Zen/Waterfox and log in to "
             f"{label}, or pass --cookie '...' / create cookies.txt manually."
         )
-    if verbose:
-        say(f"→ Scanning {len(dbs)} browser profile(s) for a {label} session…")
+    say(f"→ Scanning {len(dbs)} browser profile(s) for a {label} session…")
 
     last_error: Exception | None = None
     for db in dbs:
@@ -157,9 +155,7 @@ def grab_cookie(
             continue
         for c in cj:
             if c.name == cookie_name:
-                if verbose:
-                    profile = _profile_label(db)
-                    say(f"  ✓ found {cookie_name} in {profile}")
+                say(f"  ✓ found {cookie_name} in {_profile_label(db)}")
                 return f"{cookie_name}={c.value}"
 
     # Scanned every profile, none had the cookie.
@@ -172,25 +168,23 @@ def grab_cookie(
     )
 
 
-def grab_htb_cookie(verbose: bool = True) -> str:
+def grab_htb_cookie() -> str:
     """Convenience wrapper for HackTheBox Academy (`htb_academy_session`)."""
     return grab_cookie(
         cookie_name=TARGET_COOKIE_NAME,
         domain=TARGET_DOMAIN,
         label="HTB Academy",
         login_url="https://academy.hackthebox.com",
-        verbose=verbose,
     )
 
 
-def grab_thm_cookie(verbose: bool = True) -> str:
+def grab_thm_cookie() -> str:
     """Convenience wrapper for TryHackMe (`connect.sid`, an Express session)."""
     return grab_cookie(
         cookie_name="connect.sid",
         domain="tryhackme.com",
         label="TryHackMe",
         login_url="https://tryhackme.com",
-        verbose=verbose,
     )
 
 

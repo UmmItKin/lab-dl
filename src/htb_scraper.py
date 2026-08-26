@@ -273,7 +273,7 @@ def build_section_md(
         f"module_id: {module_id}",
         f"section: {json_quote(section.get('title', ''))}",
         f"section_id: {section['id']}",
-        f"section_num: {section['num']}/{len(info.get('_section_count', '?'))}",
+        f"section_num: {section['num']}/{info.get('_section_count', '?')}",
         f"type: {json_quote(section.get('type', ''))}",
         f"group: {json_quote(section.get('group', ''))}",
         f"url: https://academy.hackthebox.com/app/module/{module_id}/section/{section['id']}",
@@ -312,13 +312,9 @@ def build_walkthrough_md(
 
 
 def json_quote(s: str) -> str:
-    """YAML-safe quoting for frontmatter values."""
-    s = "" if s is None else str(s)
-    if s == "":
-        return '""'
-    if re.match(r"^[\w\s.,:/-]+$", s):
-        return f'"{s}"'
-    return '"' + s.replace('"', '\\"') + '"'
+    """YAML-safe quoting for frontmatter values. A JSON string is a valid YAML
+    double-quoted scalar, so json.dumps handles the escaping for us."""
+    return json.dumps("" if s is None else str(s), ensure_ascii=False)
 
 
 def _strip_redundant_h1(md: str, title: str) -> str:
@@ -417,7 +413,7 @@ def run(args: argparse.Namespace) -> int:
     if solo:
         say("→ Fetching section list…")
     sections = client.get_sections(module_id)
-    info["_section_count"] = [None] * len(sections)  # for frontmatter num/total
+    info["_section_count"] = len(sections)  # for frontmatter num/total
     if not sections:
         say("  ! No sections returned. The module may be empty or the API changed.",
               file=sys.stderr)
@@ -464,7 +460,7 @@ def run(args: argparse.Namespace) -> int:
         raw = (data or {}).get("content", "") or ""
         questions = (data or {}).get("questions", []) or []
         md = content_to_markdown(raw)
-        md = rewrite_images(md, assets_dir, http, cookie, quiet=args.quiet)
+        md = rewrite_images(md, assets_dir, http, cookie)
         # HTB section bodies begin with "# <SectionTitle>" — same title we emit
         # in build_section_md. Strip the redundant leading H1 so output isn't
         # doubled (matches what you'd see rendered on the website).
@@ -508,7 +504,7 @@ def run(args: argparse.Namespace) -> int:
 
             if raw_w.strip():
                 md_w = content_to_markdown(raw_w)
-                md_w = rewrite_images(md_w, assets_dir, http, cookie, quiet=args.quiet)
+                md_w = rewrite_images(md_w, assets_dir, http, cookie)
                 section_md_w = build_walkthrough_md(int(wid), module_id, info, md_w)
                 wt_num = len(sections) + 1
                 walkthrough_fname = _section_filename(wt_num, "Walkthrough")
@@ -737,10 +733,6 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--no-jitter", action="store_true",
         help="Disable the 1.5s sleep between sections (faster, less polite).",
-    )
-    p.add_argument(
-        "--quiet", action="store_true",
-        help="Less verbose output.",
     )
     p.add_argument(
         "--force", action="store_true",

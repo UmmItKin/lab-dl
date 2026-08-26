@@ -13,6 +13,7 @@ stdout isn't a TTY or NO_COLOR is set, so piping to a file stays clean.
 from __future__ import annotations
 
 import sys
+from contextlib import contextmanager
 from datetime import datetime
 
 from rich import box
@@ -33,14 +34,12 @@ from rich.text import Text
 # sqlmap colors the level tag and leaves the message plain; the tag alone tells
 # you what kind of line it is.
 _LEVEL_STYLES = {
-    "DEBUG": "bright_black",
     "INFO": "bold blue",
     "ACTION": "bold cyan",
     "INPUT": "bold magenta",
     "SUCCESS": "bold green",
     "WARNING": "bold yellow",
     "ERROR": "bold red",
-    "CRITICAL": "bold white on red",
 }
 
 _out = Console(markup=False, highlight=False)
@@ -178,28 +177,23 @@ def track(items, description: str):
             progress.advance(task)
 
 
+@contextmanager
 def bytes_progress(description: str, total: int):
     """Context manager yielding an `advance(n_bytes)` callback under a size bar.
 
     tar.xz has no item count to iterate, so `track()` doesn't fit; this reports
     bytes read from the source tree instead.
     """
-    from contextlib import contextmanager
-
-    @contextmanager
-    def _run():
-        if not _out.is_terminal:
-            yield lambda _n: None
-            return
-        with Progress(
-            *_progress_columns([DownloadColumn()]),
-            console=_out,
-            transient=True,
-        ) as progress:
-            task = progress.add_task(description, total=total, **_tag_fields())
-            yield lambda n: progress.advance(task, n)
-
-    return _run()
+    if not _out.is_terminal:
+        yield lambda _n: None
+        return
+    with Progress(
+        *_progress_columns([DownloadColumn()]),
+        console=_out,
+        transient=True,
+    ) as progress:
+        task = progress.add_task(description, total=total, **_tag_fields())
+        yield lambda n: progress.advance(task, n)
 
 
 # Hardcoded wordmark: pyfiglet would be a whole dependency for one string.
