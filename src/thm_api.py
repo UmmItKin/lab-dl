@@ -35,6 +35,7 @@ class THMClient:
         self.timeout = timeout
         self._session = requests.Session()
         # THM checks Referer; point it at the room page we're scraping.
+        self._room_code = room_code
         self._referer = f"{THM_BASE}/room/{room_code}"
 
     def _get_json(self, path: str, params: dict | None = None) -> dict | list:
@@ -83,10 +84,10 @@ class THMClient:
                 ) from e
             raise THMAPIError(f"Non-JSON response from {url}") from e
 
-    def _get_data(self, path: str, room_code: str, expect: type):
+    def _get_data(self, path: str, expect: type):
         """GET an endpoint and unwrap its `{"status": "success", "data": …}`
         envelope, checking `data` is the shape the caller expects."""
-        payload = self._get_json(path, params={"roomCode": room_code})
+        payload = self._get_json(path, params={"roomCode": self._room_code})
         if payload.get("status") != "success":
             raise THMAPIError(f"THM {path} returned non-success status: {payload}")
         data = payload.get("data")
@@ -94,10 +95,10 @@ class THMClient:
             raise THMAPIError(f"Unexpected THM {path} shape: {payload}")
         return data
 
-    def get_room_info(self, room_code: str) -> dict:
+    def get_room_info(self) -> dict:
         """Room metadata: title, description, difficulty, creators."""
-        return self._get_data("/api/v2/rooms/details", room_code, dict)
+        return self._get_data("/api/v2/rooms/details", dict)
 
-    def get_room_tasks(self, room_code: str) -> list[dict]:
+    def get_room_tasks(self) -> list[dict]:
         """Task list — each has taskNo, title, description (HTML), questions."""
-        return self._get_data("/api/v2/rooms/tasks", room_code, list)
+        return self._get_data("/api/v2/rooms/tasks", list)

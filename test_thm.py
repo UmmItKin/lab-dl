@@ -16,7 +16,7 @@ def test_code_language_lifted_from_code_to_pre():
 
 
 def test_images_in_code_fences_are_left_alone():
-    from thm_scraper import _split_code_and_text
+    from converter import _split_code_and_text
     chunks = _split_code_and_text("a\n```\n![x](y.png)\n```\nb")
     assert any(is_code and "![x](y.png)" in c for is_code, c in chunks), chunks
 

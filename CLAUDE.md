@@ -24,9 +24,9 @@ long loop, `bytes_progress()` for one measured in bytes rather than items (the
 tar.xz step), `rule()` for a section separator plus overall bar, and
 `banner()` for the startup wordmark; call sites still write the glyphs `→ ✓ ✗ • !`, which map to
 levels and are stripped before printing, and there is no emoji. `cookiejar.py` does the browser cookie grab for both platforms.
-`converter.py` exports `download_image`, `_split_code_and_text`, `_MD_IMG_RE`,
-and `_collapse_blanks`, which the THM scraper reuses, so don't reimplement them
-there.
+`converter.py` owns the image pipeline for both platforms: its `rewrite_images`
+takes `resolve` and `referer` arguments so THM can point at its own host rather
+than copying the loop, and the THM scraper also reuses `_collapse_blanks`.
 
 All library modules live in `src/`. Run everything through `main.py` at the
 repo root, which dispatches `htb`/`thm` subcommands to each scraper's `main()`.

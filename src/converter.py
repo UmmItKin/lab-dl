@@ -370,25 +370,26 @@ def rewrite_images(
     assets_dir: Path,
     session: requests.Session,
     cookie: str,
+    resolve=resolve_image_url,
+    referer: str = HTB_BASE + "/",
 ) -> str:
     """Find every Markdown image, download it, and rewrite the link to the local
-    relative path. Runs only outside fenced code blocks."""
-    chunks = _split_code_and_text(md)
-    out = []
-    for is_code, chunk in chunks:
-        if is_code:
-            out.append(chunk)
-            continue
+    relative path. Runs only outside fenced code blocks.
 
-        def repl(m: re.Match) -> str:
-            alt, src = m.group(1), m.group(2).strip()
-            absolute = resolve_image_url(src)
-            local = download_image(absolute, assets_dir, session, cookie)
-            if local is None:
-                # Keep the remote link so the user at least sees what failed.
-                return f"![{alt}]({absolute})"
-            rel = Path("assets") / local.name
-            return f"![{alt}]({rel.as_posix()})"
+    `resolve` and `referer` default to HTB's hosts; the THM scraper passes its
+    own so both platforms share this loop instead of copying it.
+    """
+    def repl(m: re.Match) -> str:
+        alt, src = m.group(1), m.group(2).strip()
+        url = resolve(src)
+        local = download_image(url, assets_dir, session, cookie, referer=referer)
+        if local is None:
+            # Keep the remote link so the user at least sees what failed.
+            return f"![{alt}]({url})"
+        rel = Path("assets") / local.name
+        return f"![{alt}]({rel.as_posix()})"
 
-        out.append(_MD_IMG_RE.sub(repl, chunk))
-    return "\n".join(out)
+    return "\n".join(
+        chunk if is_code else _MD_IMG_RE.sub(repl, chunk)
+        for is_code, chunk in _split_code_and_text(md)
+    )

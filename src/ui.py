@@ -1,8 +1,8 @@
 """Colored console output.
 
-One function, `say()`, a drop-in for `print()`. It picks a color from the
+One function, `say()`, a drop-in for `print()`. It derives the level from the
 line's existing leading glyph (→ ✓ • …) instead of making every call site pass
-a style, so the scrapers' output strings stay plain text.
+one, so the scrapers' output strings stay plain text.
 
 Rich is configured with markup=False and highlight=False on purpose: our lines
 contain literal brackets (`[theory     ]`, `[!bash!]$`) that Rich would
@@ -24,7 +24,6 @@ from rich.progress import (
     DownloadColumn,
     MofNCompleteColumn,
     Progress,
-    SpinnerColumn,
     TextColumn,
     TimeElapsedColumn,
 )
@@ -45,34 +44,33 @@ _LEVEL_STYLES = {
 _out = Console(markup=False, highlight=False)
 _err = Console(markup=False, highlight=False, stderr=True)
 
-# Leading glyph → (sqlmap-style level, color). Call sites already start their
+# Leading glyph → sqlmap-style level. Call sites already start their
 # lines with one of these, so the level is derived here instead of touching
 # every say() in the scrapers.
 _GLYPH_LEVELS = {
-    "→": ("ACTION", None),
-    "✓": ("SUCCESS", None),
-    "✗": ("ERROR", None),
-    "•": ("INFO", None),
-    "!": ("WARNING", None),
+    "→": "ACTION",
+    "✓": "SUCCESS",
+    "✗": "ERROR",
+    "•": "INFO",
+    "!": "WARNING",
 }
 
 
-def _classify(text: str) -> tuple[str | None, str | None, str]:
-    """Split a message into (level, style, body). The body has the glyph and its
+def _classify(text: str) -> tuple[str | None, str]:
+    """Split a message into (level, body). The body has the glyph and its
     indentation stripped, since the [LEVEL] tag replaces them."""
     stripped = text.lstrip()
     if not stripped:
-        return None, None, text
-    hit = _GLYPH_LEVELS.get(stripped[0])
-    if hit:
-        level, style = hit
-        return level, style, stripped[1:].strip()
+        return None, text
+    level = _GLYPH_LEVELS.get(stripped[0])
+    if level:
+        return level, stripped[1:].strip()
     low = stripped.lower()
     if low.startswith(("error", "auth error", "not found", "api error")) or "error:" in low:
-        return "ERROR", None, stripped
+        return "ERROR", stripped
     if low.startswith(("warn", "skipped", "interrupted")):
-        return "WARNING", None, stripped
-    return None, None, text
+        return "WARNING", stripped
+    return None, text
 
 
 def say(*args, file=None, **kwargs) -> None:
@@ -83,23 +81,23 @@ def say(*args, file=None, **kwargs) -> None:
     # Keep leading blank lines as spacing, but classify the message itself.
     lead = text[: len(text) - len(text.lstrip("\n"))]
     body_in = text[len(lead) :]
-    level, style, body = _classify(body_in)
+    level, body = _classify(body_in)
 
     if level is None:
         # No glyph and no error keyword: print as-is (tables, prompts, blanks).
-        console.print(text, style=style, soft_wrap=True, **kwargs)
+        console.print(text, soft_wrap=True, **kwargs)
         return
 
-    console.print(_tagged(level, body, lead, style), soft_wrap=True, **kwargs)
+    console.print(_tagged(level, body, lead), soft_wrap=True, **kwargs)
 
 
-def _tagged(level: str, body: str, lead: str = "", style: str | None = None) -> Text:
+def _tagged(level: str, body: str, lead: str = "") -> Text:
     """`[HH:MM:SS] [LEVEL] body`. One space after the tag, never padding: lining
     the bodies up in a column reads like tab stops rather than a log."""
     line = Text(lead)
     line.append(f"[{datetime.now():%H:%M:%S}] ", style="bright_black")
     line.append(f"[{level}] ", style=_LEVEL_STYLES[level])
-    line.append(body, style=style)
+    line.append(body)
     return line
 
 
@@ -217,12 +215,7 @@ def banner(subtitle: str = "") -> None:
     _out.print(Panel(art, box=box.ROUNDED, border_style="green", expand=False))
 
 
-def rule(
-    title: str,
-    current: int | None = None,
-    total: int | None = None,
-    note: str = "",
-) -> None:
+def rule(title: str, current: int, total: int, note: str = "") -> None:
     """One compact header per module in a path run: position, bar, then title.
 
     A full-width Rich rule plus a separate bar was too loud repeated 20 times,
@@ -230,10 +223,6 @@ def rule(
     are deliberately not the `━` that `track()` uses, so the outer module bar
     can't be mistaken for the inner section bar.
     """
-    if current is None or not total:
-        # markup=False on the console, so pass the style, not inline tags.
-        _out.rule(Text(title, style="bold cyan"), style="cyan")
-        return
     width = 12
     done = round(width * current / total)
     # Same leading columns as a log line, so this doesn't jut out to the left.
@@ -261,7 +250,7 @@ def demo() -> None:
     assert _classify("  ! x")[0] == "WARNING"
     assert _classify("  auth error: 401")[0] == "ERROR"
     # A glyph line loses its glyph; the [LEVEL] tag replaces it.
-    assert _classify("  ✓ wrote a.md")[2] == "wrote a.md"
+    assert _classify("  ✓ wrote a.md")[1] == "wrote a.md"
     # No glyph, no keyword: left alone so tables and prompts pass through.
     assert _classify("     1. [theory] Overview")[0] is None
     table(["#", "Type", "Title"],

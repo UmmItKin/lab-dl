@@ -20,12 +20,7 @@ from urllib.parse import urljoin
 import requests
 
 import cookiejar
-from converter import (
-    _collapse_blanks,
-    _MD_IMG_RE,
-    _split_code_and_text,
-    download_image,
-)
+from converter import _collapse_blanks, rewrite_images
 from thm_api import THM_BASE, THMAPIError, THMAuthError, THMClient, THMNotFoundError
 from ui import say, table as ui_table
 
@@ -92,28 +87,6 @@ def html_to_markdown(html: str) -> str:
 # ---------------------------------------------------------------------------
 # Images
 # ---------------------------------------------------------------------------
-
-def rewrite_images(
-    md: str, assets_dir: Path, session: requests.Session, cookie: str
-) -> str:
-    """Download every Markdown image and rewrite the link to a local path.
-    Skips fenced code blocks so `![...]()` inside a snippet stays literal."""
-    def repl(m: re.Match) -> str:
-        alt, src = m.group(1), m.group(2).strip()
-        url = urljoin(THM_BASE, src)  # THM srcs are usually absolute already
-        local = download_image(
-            url, assets_dir, session, cookie, referer=THM_BASE + "/"
-        )
-        if local is None:
-            return f"![{alt}]({url})"  # keep remote on failure
-        rel = Path("assets") / local.name
-        return f"![{alt}]({rel.as_posix()})"
-
-    return "\n".join(
-        chunk if is_code else _MD_IMG_RE.sub(repl, chunk)
-        for is_code, chunk in _split_code_and_text(md)
-    )
-
 
 # ---------------------------------------------------------------------------
 # Output assembly
@@ -240,8 +213,8 @@ def run(args: argparse.Namespace) -> int:
 
     say(f"→ Fetching room {room_code!r}…")
     try:
-        room_info = client.get_room_info(room_code)
-        tasks = client.get_room_tasks(room_code)
+        room_info = client.get_room_info()
+        tasks = client.get_room_tasks()
     except THMAuthError as e:
         # A cached cookies-thm.txt only reveals itself as stale here. Re-grab
         # from the browser once and retry, unless the user passed --cookie.
@@ -256,8 +229,8 @@ def run(args: argparse.Namespace) -> int:
                 Path(args.cookie_file) if args.cookie_file else Path("cookies-thm.txt"),
             )
             client = THMClient(cookie=cookie, room_code=room_code, timeout=args.timeout)
-            room_info = client.get_room_info(room_code)
-            tasks = client.get_room_tasks(room_code)
+            room_info = client.get_room_info()
+            tasks = client.get_room_tasks()
         except THMAuthError as e2:
             say(f"  auth error: {e2}", file=sys.stderr)
             return 2
@@ -290,7 +263,11 @@ def run(args: argparse.Namespace) -> int:
 
     # Download + convert.
     md = build_room_md(room_code, tasks, room_info)
-    md = rewrite_images(md, assets_dir, http, cookie)
+    md = rewrite_images(
+        md, assets_dir, http, cookie,
+        resolve=lambda src: urljoin(THM_BASE, src),
+        referer=THM_BASE + "/",
+    )
 
     out_file.write_text(md, encoding="utf-8")
     say(f"✓ Saved to {out_file.resolve()}")

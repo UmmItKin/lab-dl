@@ -92,8 +92,8 @@ images and rewrite the links to local paths.
 | `--dry-run` | List sections or tasks, write nothing. |
 
 HTB only: `--debug-json` dumps the raw API response, `--no-walkthrough` skips
-the "Show solution" file, `--no-jitter` drops the polite inter-section sleep,
-`--quiet` trims the output.
+the "Show solution" file, and `--no-jitter` drops the polite inter-section
+sleep.
 
 ## Notes
 
