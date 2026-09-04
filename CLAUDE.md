@@ -20,7 +20,8 @@ offline study:
 Three modules are shared. `ui.py` provides `say()`, a drop-in for `print()` that
 emits sqlmap-style `[HH:MM:SS] [LEVEL]` lines (ACTION, INFO, SUCCESS,
 WARNING, ERROR, plus `ask()` for `[INPUT]` prompts), plus `table()` for listings, `track()` for a progress bar over a
-long loop, `rule()` for a section separator plus overall bar, and
+long loop, `bytes_progress()` for one measured in bytes rather than items (the
+tar.xz step), `rule()` for a section separator plus overall bar, and
 `banner()` for the startup wordmark; call sites still write the glyphs `→ ✓ ✗ • !`, which map to
 levels and are stripped before printing, and there is no emoji. `cookiejar.py` does the browser cookie grab for both platforms.
 `converter.py` exports `download_image`, `_split_code_and_text`, `_MD_IMG_RE`,
