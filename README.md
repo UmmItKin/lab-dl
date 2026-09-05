@@ -102,7 +102,7 @@ sleep.
   Academy UI first.
 - A few images only resolve on HTB's CDN. The downloader retries there
   automatically; re-run if any fail.
-- `AGENTS.md` documents the API layout and conventions in detail.
+- `CLAUDE.md` documents the API layout and conventions in detail.
 
 ## Disclaimer
 
