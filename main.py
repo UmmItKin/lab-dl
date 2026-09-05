@@ -24,7 +24,9 @@ from cli import PLATFORMS, build_parser
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     parser = build_parser()
-    if not argv or "-h" in argv or "--help" in argv:
+    # Only claim --help before a platform is named; after that the scraper's
+    # own parser owns it, so `main.py htb --help` lists HTB's real flags.
+    if not argv or argv[0] in ("-h", "--help"):
         parser.print_help()
         return 0
     ns = parser.parse_args(argv)

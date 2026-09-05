@@ -7,7 +7,6 @@ Task descriptions are HTML, so they go through markdownify. Run it through
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import sys
 from pathlib import Path
@@ -16,7 +15,7 @@ from urllib.parse import urljoin
 import requests
 
 import cookiejar
-from converter import _collapse_blanks, rewrite_images
+from converter import _collapse_blanks, json_quote, rewrite_images, slugify
 from thm_api import THM_BASE, THMAPIError, THMAuthError, THMClient, THMNotFoundError
 from ui import say, table as ui_table
 
@@ -77,17 +76,6 @@ def html_to_markdown(html: str) -> str:
 
 
 
-def _slugify(s: str) -> str:
-    s = re.sub(r"[^\w\s-]", "", s).strip().lower()
-    s = re.sub(r"[\s_-]+", "-", s)
-    s = s.strip("-")
-    return s[:60] or "untitled"
-
-
-def _yaml_quote(s: str) -> str:
-    return json.dumps("" if s is None else str(s), ensure_ascii=False)
-
-
 def _format_question(q: dict, q_idx: int) -> str:
     """One question → markdown block. Includes the question text (HTML→MD),
     any hint, and (if the user already answered it) their submission."""
@@ -125,11 +113,11 @@ def build_room_md(room_code: str, tasks: list[dict], room_meta: dict | None = No
     frontmatter = [
         "---",
         "platform: thm",
-        f"room: {_yaml_quote(room_code)}",
-        f"title: {_yaml_quote(title)}",
-        f"difficulty: {_yaml_quote(difficulty)}",
-        f"type: {_yaml_quote(room_type)}",
-        f"creators: {_yaml_quote(creators_str)}",
+        f"room: {json_quote(room_code)}",
+        f"title: {json_quote(title)}",
+        f"difficulty: {json_quote(difficulty)}",
+        f"type: {json_quote(room_type)}",
+        f"creators: {json_quote(creators_str)}",
         f"url: https://tryhackme.com/room/{room_code}",
         "---",
         "",
@@ -168,21 +156,15 @@ def run(args: argparse.Namespace) -> int:
     if args.cookie:
         cookie = args.cookie.strip()
     else:
-        cookie_file = Path(args.cookie_file) if args.cookie_file else Path("cookies-thm.txt")
-        if getattr(args, "reload_cookie", False) or not cookie_file.exists():
-            if not cookie_file.exists():
-                say(f"→ No {cookie_file} found. Auto-grabbing from your browser…")
+        cookie_file = Path(args.cookie_file or "cookies-thm.txt")
+        raw = cookie_file.read_text(encoding="utf-8").strip() if cookie_file.exists() else ""
+        if getattr(args, "reload_cookie", False) or "connect.sid=" not in raw:
+            say("→ Grabbing a TryHackMe session from your browser…")
             cookie = cookiejar.grab_thm_cookie()
             cookiejar.save_to_cookie_file(cookie, cookie_file)
             say(f"  ✓ saved to {cookie_file}")
         else:
-            raw = cookie_file.read_text(encoding="utf-8").strip()
-            if not raw or "connect.sid=" not in raw:
-                say(f"→ {cookie_file} has no connect.sid; re-grabbing from browser…")
-                cookie = cookiejar.grab_thm_cookie()
-                cookiejar.save_to_cookie_file(cookie, cookie_file)
-            else:
-                cookie = raw
+            cookie = raw
 
     room_code = args.room.strip()
     # Accept full URL: https://tryhackme.com/room/<code>
@@ -206,8 +188,7 @@ def run(args: argparse.Namespace) -> int:
         try:
             cookie = cookiejar.grab_thm_cookie()
             cookiejar.save_to_cookie_file(
-                cookie,
-                Path(args.cookie_file) if args.cookie_file else Path("cookies-thm.txt"),
+                cookie, Path(args.cookie_file or "cookies-thm.txt")
             )
             client = THMClient(cookie=cookie, room_code=room_code, timeout=args.timeout)
             room_info = client.get_room_info()
@@ -237,7 +218,7 @@ def run(args: argparse.Namespace) -> int:
     out_root = Path(args.output)
     out_root.mkdir(parents=True, exist_ok=True)
     assets_dir = out_root / "assets"
-    out_file = out_root / f"{_slugify(room_code)}.md"
+    out_file = out_root / f"{slugify(room_code, lower=True)}.md"
 
     http = requests.Session()
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import html as _html
+import json
 import os
 import re
 import time
@@ -46,6 +47,23 @@ def _deindent_fences(md: str) -> str:
         else:
             out.append(line)
     return "\n".join(out)
+
+
+def slugify(text: str, lower: bool = False) -> str:
+    """Filesystem-safe name. `lower` also folds underscores into dashes, which
+    is what the THM scraper wants; HTB keeps its titles' case and underscores."""
+    text = re.sub(r"[^\w\s-]", "", text or "").strip()
+    if lower:
+        text = re.sub(r"[\s_-]+", "-", text.lower())
+    else:
+        text = re.sub(r"[-\s]+", "-", text)
+    return text.strip("-")[:60] or "untitled"
+
+
+def json_quote(s: str) -> str:
+    """YAML-safe quoting for frontmatter values. A JSON string is a valid YAML
+    double-quoted scalar, so json.dumps handles the escaping for us."""
+    return json.dumps("" if s is None else str(s), ensure_ascii=False)
 
 
 def _collapse_blanks(md: str) -> str:

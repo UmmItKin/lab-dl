@@ -17,7 +17,7 @@ from pathlib import Path
 import requests
 
 from htb_api import HTBAuthError, HTBClient, HTBNotFoundError, HTBAPIError
-from converter import content_to_markdown, rewrite_images
+from converter import content_to_markdown, json_quote, rewrite_images, slugify
 from ui import (
     ask as ui_ask,
     bytes_progress as ui_bytes_progress,
@@ -61,7 +61,7 @@ def load_cookie(args: argparse.Namespace) -> str:
     if args.cookie:
         return args.cookie.strip()
 
-    cookie_file = Path(args.cookie_file) if args.cookie_file else Path("cookies.txt")
+    cookie_file = Path(args.cookie_file or "cookies.txt")
 
     # --reload-cookie: always re-grab from the browser, overwriting the file.
     if getattr(args, "reload_cookie", False):
@@ -120,18 +120,12 @@ def _grab_and_cache(cookie_file: Path) -> str:
     return cookie
 
 
-def _slugify(text: str, max_len: int = 60) -> str:
-    text = re.sub(r"[^\w\s-]", "", text or "").strip()
-    text = re.sub(r"[-\s]+", "-", text).strip("-")
-    return text[:max_len] or "untitled"
-
-
 def _section_filename(num: int, title: str) -> str:
-    return f"{num:02d}-{_slugify(title)}.md"
+    return f"{num:02d}-{slugify(title)}.md"
 
 
 def _module_dir_name(module_id: int, name: str) -> str:
-    return f"{module_id:03d}-{_slugify(name)}"
+    return f"{module_id:03d}-{slugify(name)}"
 
 
 def _first_string(value) -> str:
@@ -274,12 +268,6 @@ def build_walkthrough_md(
     return "\n".join(frontmatter) + content_md
 
 
-def json_quote(s: str) -> str:
-    """YAML-safe quoting for frontmatter values. A JSON string is a valid YAML
-    double-quoted scalar, so json.dumps handles the escaping for us."""
-    return json.dumps("" if s is None else str(s), ensure_ascii=False)
-
-
 def _strip_redundant_h1(md: str, title: str) -> str:
     """If the converted content starts with '# <title>' (which HTB bodies do),
     drop that first H1 — build_section_md already emits the title as an H1, so
@@ -320,9 +308,7 @@ def run(args: argparse.Namespace) -> int:
             return 2
         say("  cookie rejected — re-grabbing from your browser…")
         try:
-            cookie = _grab_and_cache(
-                Path(args.cookie_file) if args.cookie_file else Path("cookies.txt")
-            )
+            cookie = _grab_and_cache(Path(args.cookie_file or "cookies.txt"))
             client = HTBClient(cookie=cookie, timeout=args.timeout)
             client.set_referer(module_id)
             info = client.get_module(module_id)
@@ -505,9 +491,7 @@ def run_path(args: argparse.Namespace) -> int:
         if args.cookie:
             raise
         say("  cookie rejected — re-grabbing from your browser…")
-        cookie = _grab_and_cache(
-            Path(args.cookie_file) if args.cookie_file else Path("cookies.txt")
-        )
+        cookie = _grab_and_cache(Path(args.cookie_file or "cookies.txt"))
         client = HTBClient(cookie=cookie, timeout=args.timeout)
         info = client.get_path(path_id)
 
@@ -700,10 +684,7 @@ def main(argv: list[str] | None = None) -> int:
     except KeyboardInterrupt:
         say("\nInterrupted.", file=sys.stderr)
         return 130
-    except (HTBAuthError, HTBNotFoundError, HTBAPIError) as e:
-        say(f"Error: {e}", file=sys.stderr)
-        return 1
-    except ValueError as e:
+    except (HTBAuthError, HTBNotFoundError, HTBAPIError, ValueError) as e:
         say(f"Error: {e}", file=sys.stderr)
         return 1
 
