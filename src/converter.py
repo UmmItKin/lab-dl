@@ -1,27 +1,14 @@
 """Convert HTB Academy section content to clean Markdown, and download images.
 
-HTB section bodies are a hybrid: mostly Markdown with embedded HTML fragments
-(<img>, <div class="alert ...">, <div class="card">, inline <code>/<strong>/<a>,
-etc.). The raw payload also uses CRLF line endings and HTB-specific code-block
-quirks (`[!bash!]$` prompts, `-session` language suffixes).
-
-The strategy:
-  1. Normalize line endings + HTB-specific code quirks first.
-  2. Convert the embedded HTML fragments to Markdown, but ONLY outside fenced
-     code blocks (so example HTML shown inside ``` fences is preserved verbatim).
-  3. Clean up whitespace.
-
-Images are downloaded into an assets/ folder next to the .md file and the
-Markdown links are rewritten to point at the local copy. Image hosts:
-  - `/content/...` paths live on the CDN host.
-  - everything else relative lives on the academy host.
-If the academy host 404s an image, we retry the same path on the CDN host
-(HTB sometimes only serves certain assets from the CDN).
+HTB bodies are Markdown with embedded HTML fragments, so only those fragments
+are converted, and only outside fenced code blocks. See AGENTS.md for why
+running the whole document through an HTML engine breaks it.
 """
 
 from __future__ import annotations
 
 import hashlib
+import html as _html
 import os
 import re
 import time
@@ -33,11 +20,6 @@ import requests
 from htb_api import CDN_BASE, HTB_BASE, USER_AGENT
 
 
-# ---------------------------------------------------------------------------
-# 1. Content cleanup
-# ---------------------------------------------------------------------------
-
-# Regex object so the loop below is a bit faster.
 _FENCE_RE = re.compile(r"^\s*```")
 
 
@@ -90,24 +72,11 @@ def _split_code_and_text(md: str):
     return parts
 
 
-# --- per-tag HTML -> Markdown ---------------------------------------------
-#
-# HTB section bodies are Markdown with *embedded HTML fragments* — NOT pure
-# HTML. Passing the whole document through an HTML→md engine (html2text)
-# destroys the structure: HTML collapses newlines into spaces, mangling the
-# Markdown that was already valid. So we do the opposite — walk the text and
-# convert only the specific HTML fragments HTB emits, leaving everything else
-# (existing markdown) untouched. Newlines are preserved throughout.
-
-import html as _html  # stdlib, for entity decoding
-
 # <div class="alert alert-warning"> ... </div>  (also alert-danger, alert-info)
 _ALERT_BLOCK_RE = re.compile(
     r'<div\s+class="alert\s+([^"<>]*?)">([\s\S]*?)</div>', re.IGNORECASE
 )
 # Generic card container: <div class="card [bg-light|...]"><div class="card-body">...</div></div>
-# HTB cards often carry extra modifier classes (bg-light, border-*, text-*), so
-# match "card" as one of several whitespace-separated classes.
 _CARD_RE = re.compile(
     r'<div\s+class="[^"]*\bcard\b[^"]*">\s*'
     r'<div\s+class="[^"]*\bcard-body\b[^"]*">([\s\S]*?)</div>\s*</div>',
@@ -133,7 +102,6 @@ def _convert_alerts(text: str) -> str:
         body = m.group(2).strip()
         body = _convert_inline_html(body)
         label = "Warning" if any(k in cls for k in ("warning", "danger")) else "Note"
-        # Multi-line body -> prefix every line with "> ".
         lines = [ln for ln in body.split("\n")]
         while lines and not lines[0].strip():
             lines.pop(0)
@@ -153,8 +121,6 @@ def _convert_cards(text: str) -> str:
     def repl(m: re.Match) -> str:
         body = m.group(1).strip()
         body = _convert_inline_html(body)
-        # Prefix every line of the body with "> " so it forms a real Markdown
-        # blockquote (HTB cards are often multi-line with leading blanks).
         lines = [ln for ln in body.split("\n")]
         # Drop a single leading blank so the quote doesn't start with "> ".
         while lines and not lines[0].strip():
@@ -209,7 +175,6 @@ def _convert_simple_tags(text: str) -> str:
         elif name == "hr":
             out.append("\n---\n")
         elif name in ("ul", "ol"):
-            # list container tags -> nothing in markdown
             pass
         elif name == "li":
             out.append("\n- " if not closing else "")
@@ -250,7 +215,6 @@ def content_to_markdown(content: str) -> str:
     md = _normalize_code_quirks(md)
     md = _deindent_fences(md)
 
-    # Convert HTML fragments only in non-code chunks.
     chunks = _split_code_and_text(md)
     rebuilt = []
     for is_code, chunk in chunks:
@@ -262,15 +226,10 @@ def content_to_markdown(content: str) -> str:
     # stray "  " runs), then drop lines that are now only whitespace.
     md = "\n".join(line.rstrip() for line in md.split("\n"))
     md = re.sub(r"^[ \t]+$", "", md, flags=re.MULTILINE)
-    # Normalize list bullets to '-'.
     md = re.sub(r"^\s*[+*]\s", "- ", md, flags=re.MULTILINE)
     md = _collapse_blanks(md)
     return md.strip() + "\n"
 
-
-# ---------------------------------------------------------------------------
-# 2. Image handling
-# ---------------------------------------------------------------------------
 
 _MD_IMG_RE = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
 
@@ -303,18 +262,14 @@ def _safe_filename(url: str) -> str:
     """Stable, filesystem-safe name derived from the image URL."""
     parsed = urlparse(url)
     name = os.path.basename(parsed.path) or "image"
-    # If HTB didn't give us an extension, guess .png for image assets.
     if "." not in name:
         name += ".png"
     # Disambiguate with a short hash of the full URL so different paths that
     # share a basename don't collide.
     digest = hashlib.md5(url.encode("utf-8")).hexdigest()[:8]
     stem, ext = os.path.splitext(name)
-    # Mermaid diagrams arrive as mermaid.ink/img/pako:<the whole compressed
-    # diagram>, so the basename alone can blow past the filesystem's 255-byte
-    # NAME_MAX and make every path call raise OSError. The digest already keeps
-    # the name unique, so the stem is only a readability hint: truncate it.
-    # Slice bytes, not characters, since a non-ASCII basename can be wider.
+    # Mermaid URLs embed the whole diagram, blowing past NAME_MAX. The digest
+    # already makes the name unique, so truncate the stem. Bytes, not chars.
     budget = _NAME_MAX_BYTES - len(f"-{digest}{ext}".encode("utf-8"))
     stem_bytes = stem.encode("utf-8")[:budget]
     stem = stem_bytes.decode("utf-8", "ignore") or "image"
@@ -384,7 +339,6 @@ def rewrite_images(
         url = resolve(src)
         local = download_image(url, assets_dir, session, cookie, referer=referer)
         if local is None:
-            # Keep the remote link so the user at least sees what failed.
             return f"![{alt}]({url})"
         rel = Path("assets") / local.name
         return f"![{alt}]({rel.as_posix()})"

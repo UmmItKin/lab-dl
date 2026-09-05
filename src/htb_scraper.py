@@ -1,19 +1,7 @@
 #!/usr/bin/env python3
-"""Download a HackTheBox Academy module as structured Markdown.
+"""Download a HackTheBox Academy module, or a whole path, as Markdown.
 
-Usage:
-    python htb_scraper.py 293
-    python htb_scraper.py https://academy.hackthebox.com/module/293
-    python htb_scraper.py 293 --cookie "htb_academy_session=...; XSRF-TOKEN=..."
-    python htb_scraper.py 293 --cookie-file ~/htb-cookies.txt --output ./notes
-    python htb_scraper.py 293 --dry-run     # metadata + section list, no files
-
-Cookies are read from (in priority order):
-    --cookie "..."        inline
-    --cookie-file PATH    a file containing the raw Cookie header on one line
-    ./cookies.txt         default (gitignored)
-
-This tool is for personal study only. Do not redistribute HTB Academy content.
+Run it through `main.py htb`. For personal study only; do not redistribute.
 """
 
 from __future__ import annotations
@@ -39,10 +27,6 @@ from ui import (
     track as ui_track,
 )
 
-
-# ---------------------------------------------------------------------------
-# Argument / cookie helpers
-# ---------------------------------------------------------------------------
 
 _MODULE_URL_RE = re.compile(
     r"academy\.hackthebox\.com/(?:app/)?module/(\d+)(?:/section/(\d+))?"
@@ -84,25 +68,18 @@ def load_cookie(args: argparse.Namespace) -> str:
         return _grab_and_cache(cookie_file)
 
     if not cookie_file.exists():
-        # No cookie file and no --cookie: fall back to the browser auto-grab.
-        # This is the common case — the user is logged in to HTB Academy in
-        # their browser and just wants the scraper to use that session.
         say(f"→ No {cookie_file} found. Auto-grabbing from your browser…")
         return _grab_and_cache(cookie_file)
 
     raw = cookie_file.read_text(encoding="utf-8")
 
-    # The cookie value must be ASCII-safe (requests encodes headers as latin-1),
-    # so anything non-ASCII is either a comment or stray text — never part of a
-    # real session cookie. Filter to cookie-shaped fragments only.
+    # requests encodes headers as latin-1, so keep only cookie-shaped ASCII.
     parts = []
     for line in raw.splitlines():
         line = line.strip()
         if not line or line.startswith("#"):
             continue
-        # A cookie line is name=value pairs joined by ';'. If the non-comment
-        # line still contains spaces outside values, it's prose — skip it.
-        if "=" not in line:
+        if "=" not in line:  # prose, not a name=value pair
             continue
         parts.append(line)
     cookie = "; ".join(p.rstrip(";") for p in parts)
@@ -127,8 +104,6 @@ def load_cookie(args: argparse.Namespace) -> str:
     try:
         cookie.encode("latin-1")
     except UnicodeEncodeError:
-        # Last-resort guard: strip any remaining non-ASCII so the request can't
-        # blow up with a codec error.
         cookie = cookie.encode("ascii", "ignore").decode("ascii")
     return cookie
 
@@ -145,10 +120,6 @@ def _grab_and_cache(cookie_file: Path) -> str:
     return cookie
 
 
-# ---------------------------------------------------------------------------
-# Filename helpers
-# ---------------------------------------------------------------------------
-
 def _slugify(text: str, max_len: int = 60) -> str:
     text = re.sub(r"[^\w\s-]", "", text or "").strip()
     text = re.sub(r"[-\s]+", "-", text).strip("-")
@@ -162,10 +133,6 @@ def _section_filename(num: int, title: str) -> str:
 def _module_dir_name(module_id: int, name: str) -> str:
     return f"{module_id:03d}-{_slugify(name)}"
 
-
-# ---------------------------------------------------------------------------
-# README (module-level) generation
-# ---------------------------------------------------------------------------
 
 def _first_string(value) -> str:
     """HTB's takeaways sometimes come as str, sometimes as {'content': ...} or
@@ -239,10 +206,6 @@ def build_readme(
 
     return "\n".join(lines).rstrip() + "\n"
 
-
-# ---------------------------------------------------------------------------
-# Section file generation
-# ---------------------------------------------------------------------------
 
 def _format_questions(questions: list[dict]) -> str:
     if not questions:
@@ -337,10 +300,6 @@ def _strip_redundant_h1(md: str, title: str) -> str:
     return "\n".join(lines)
 
 
-# ---------------------------------------------------------------------------
-# Main orchestration
-# ---------------------------------------------------------------------------
-
 def run(args: argparse.Namespace) -> int:
     cookie = load_cookie(args)
     module_id, only_section_id = parse_target(args.target)
@@ -355,9 +314,7 @@ def run(args: argparse.Namespace) -> int:
     try:
         info = client.get_module(module_id)
     except HTBAuthError as e:
-        # A cached cookies.txt can only be found stale here — expiry isn't
-        # visible until the API rejects it. Re-grab from the browser once and
-        # retry, unless the user pinned the cookie themselves with --cookie.
+        # A cached cookie only reveals itself as stale here. Retry once.
         if args.cookie:
             say(f"  auth error: {e}", file=sys.stderr)
             return 2
@@ -380,8 +337,7 @@ def run(args: argparse.Namespace) -> int:
     if solo:
         say(f"  • {name}")
 
-    # --debug-json: dump raw API responses so we can discover field names
-    # (e.g. walkthrough_id) without guessing. Writes nothing.
+    # Dump raw API responses to discover field names. Writes nothing.
     if args.debug_json:
         say("=== module response (first 8000 chars) ===")
         say(json.dumps(info, indent=2, ensure_ascii=False)[:8000])
@@ -437,8 +393,7 @@ def run(args: argparse.Namespace) -> int:
         say("• --dry-run: not writing any files.")
         return 0
 
-    # Output directory. A path run pre-sets args._module_dir so its modules
-    # nest under the path folder in curriculum order.
+    # A path run pre-sets _module_dir so modules nest under the path folder.
     out_root = Path(args.output)
     module_dir = getattr(args, "_module_dir", None) or (
         out_root / _module_dir_name(module_id, name)
@@ -461,9 +416,7 @@ def run(args: argparse.Namespace) -> int:
         questions = (data or {}).get("questions", []) or []
         md = content_to_markdown(raw)
         md = rewrite_images(md, assets_dir, http, cookie)
-        # HTB section bodies begin with "# <SectionTitle>" — same title we emit
-        # in build_section_md. Strip the redundant leading H1 so output isn't
-        # doubled (matches what you'd see rendered on the website).
+        # build_section_md already emits the title as H1; drop HTB's copy.
         md = _strip_redundant_h1(md, s.get("title", ""))
         questions_md = _format_questions(questions)
         section_md = build_section_md(s, module_id, info, md, questions_md)
@@ -476,11 +429,8 @@ def run(args: argparse.Namespace) -> int:
         if not args.no_jitter:
             time.sleep(1.5)
 
-    # Walkthrough (Show solution) — optional, one per module. Written as a
-    # standalone file numbered after the last section (e.g. 25-Walkthrough.md).
-    # The walkthrough_id field location in the API response isn't confirmed, so
-    # we look it up defensively and skip silently if absent. Use --debug-json
-    # to inspect the raw module response and find the correct field name.
+    # walkthrough_id's location in the response isn't confirmed, so look it up
+    # defensively and skip when absent. --debug-json shows the real field names.
     walkthrough_fname: str | None = None
     if not args.no_walkthrough:
         wid = info.get("walkthrough_id")
@@ -669,25 +619,20 @@ def _build_path_readme(path_id: int, info: dict, modules: list[dict]) -> str:
     return "\n".join(lines)
 
 
-# ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
-
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="htb_scraper.py",
         description=(
             "Download a HackTheBox Academy module as structured Markdown. "
             "For personal study only — do not redistribute HTB content. "
-            "(TryHackMe rooms: use thm_scraper.py.)"
+            "(TryHackMe rooms: main.py thm.)"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "Examples:\n"
-            "  python htb_scraper.py 293\n"
-            '  python htb_scraper.py 293 --cookie "htb_academy_session=..."\n'
-            "  python htb_scraper.py 293 --dry-run\n"
-            "  python htb_scraper.py https://academy.hackthebox.com/module/293\n"
+            "  main.py htb 293\n"
+            "  main.py htb 293 --dry-run\n"
+            "  main.py htb path 419\n"
         ),
     )
     p.add_argument(

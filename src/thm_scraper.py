@@ -1,11 +1,7 @@
-"""TryHackMe room downloader.
+"""TryHackMe room downloader: one room becomes one Markdown file.
 
-Fetches a room's task list from the THM API and writes it as a single
-Markdown file (one room → one .md). Task descriptions are HTML and are
-converted to Markdown via markdownify; images are downloaded locally.
-
-Run it directly:
-    python thm_scraper.py csrfintroduction
+Task descriptions are HTML, so they go through markdownify. Run it through
+`main.py thm`.
 """
 
 from __future__ import annotations
@@ -24,10 +20,6 @@ from converter import _collapse_blanks, rewrite_images
 from thm_api import THM_BASE, THMAPIError, THMAuthError, THMClient, THMNotFoundError
 from ui import say, table as ui_table
 
-
-# ---------------------------------------------------------------------------
-# HTML → Markdown
-# ---------------------------------------------------------------------------
 
 def html_to_markdown(html: str) -> str:
     """Convert THM task description HTML to clean Markdown.
@@ -59,7 +51,6 @@ def html_to_markdown(html: str) -> str:
             pre_classes = pre.get("class", []) or []
             if isinstance(pre_classes, str):
                 pre_classes = pre_classes.split()
-            # Avoid duplicating if already present.
             for lc in lang_classes:
                 if lc not in pre_classes:
                     pre_classes.append(lc)
@@ -84,13 +75,7 @@ def html_to_markdown(html: str) -> str:
     return _collapse_blanks(md_text).strip() + "\n"
 
 
-# ---------------------------------------------------------------------------
-# Images
-# ---------------------------------------------------------------------------
 
-# ---------------------------------------------------------------------------
-# Output assembly
-# ---------------------------------------------------------------------------
 
 def _slugify(s: str) -> str:
     s = re.sub(r"[^\w\s-]", "", s).strip().lower()
@@ -178,10 +163,6 @@ def build_room_md(room_code: str, tasks: list[dict], room_meta: dict | None = No
     return "\n".join(frontmatter) + "\n" + "\n".join(body).rstrip() + "\n"
 
 
-# ---------------------------------------------------------------------------
-# Orchestration
-# ---------------------------------------------------------------------------
-
 def run(args: argparse.Namespace) -> int:
     # Cookie: same priority as HTB scraper (--cookie > file > browser grab).
     if args.cookie:
@@ -253,7 +234,6 @@ def run(args: argparse.Namespace) -> int:
         say("• --dry-run: not writing any files.")
         return 0
 
-    # Output: one .md per room.
     out_root = Path(args.output)
     out_root.mkdir(parents=True, exist_ok=True)
     assets_dir = out_root / "assets"
@@ -261,7 +241,6 @@ def run(args: argparse.Namespace) -> int:
 
     http = requests.Session()
 
-    # Download + convert.
     md = build_room_md(room_code, tasks, room_info)
     md = rewrite_images(
         md, assets_dir, http, cookie,

@@ -1,18 +1,7 @@
-"""Auto-grab HackTheBox Academy cookies from a local Firefox-based browser.
+"""Read a site's session cookie out of a local Firefox-based browser profile.
 
-This lets the scraper run without a manually-maintained cookies.txt: if no
-cookie file is present (or --reload-cookie is passed), we scan the user's
-Firefox-based browser profiles (Floorp, Firefox, LibreWolf, Zen, Waterfox…),
-find the one whose session is actually logged in to HTB Academy, and read the
-`htb_academy_session` cookie directly from its cookies.sqlite.
-
-Firefox-based browsers store cookie values in plaintext (unlike Chromium,
-which encrypts them), so no keychain/key4.db decryption is needed — the
-extraction is a plain sqlite read, wrapped by browser_cookie3 which also
-handles session-store recovery for cookies not yet flushed to disk.
-
-This module never imports htb_scraper (keeps the import graph clean). It talks
-to the network only via browser_cookie3's sqlite reads.
+Firefox stores cookie values in plaintext, so this is a plain sqlite read via
+browser_cookie3. Chromium would need decryption and is out of scope.
 """
 
 from __future__ import annotations
@@ -22,11 +11,6 @@ from pathlib import Path
 
 from ui import say
 
-# browser_cookie3 is the only third-party dep here. Imported lazily inside
-# grab_htb_cookie() so that `import cookiejar` never hard-fails if the package
-# is absent — callers get a clear error only when they actually try to grab.
-
-# The cookie the scraper needs to authenticate to the Academy API.
 TARGET_COOKIE_NAME = "htb_academy_session"
 TARGET_DOMAIN = "hackthebox.com"
 
@@ -158,7 +142,6 @@ def grab_cookie(
                 say(f"  ✓ found {cookie_name} in {_profile_label(db)}")
                 return f"{cookie_name}={c.value}"
 
-    # Scanned every profile, none had the cookie.
     login_hint = f"Make sure you're logged in to {login_url} in your " if login_url else ""
     raise SystemExit(
         f"No {label} session found in any scanned browser profile.\n"
