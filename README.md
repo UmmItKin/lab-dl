@@ -2,7 +2,7 @@
 
 # lab-dl
 
-Download HackTheBox Academy modules and TryHackMe rooms as clean Markdown,
+Download HackTheBox Academy modules and TryHackMe rooms as clean Markdown
 for personal offline study.
 
 ![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)
@@ -35,12 +35,13 @@ reads the session from your profile and caches it to `cookies.txt` or
 `cookies-thm.txt`, both gitignored, and re-grabs it automatically when a cached
 copy expires.
 
-To pass one in by hand instead, use `--cookie "htb_academy_session=..."` or put
-it in `cookies.txt` (see `cookies.txt.example`).
+To supply the cookie yourself instead, pass
+`--cookie "htb_academy_session=..."` or put it in `cookies.txt` (see
+`cookies.txt.example`).
 
-A path run asks before it downloads, and again at the end whether to pack the
-result into a `.tar.xz` next to the folder. With `-y` it downloads without
-asking and skips the archive.
+A path run asks twice: once before it starts downloading, and once at the end
+to offer a `.tar.xz` beside the folder. With `-y` it downloads without asking
+and skips the archive.
 
 ```
 [23:50:32] [ACTION] Fetching path 419 metadata…
@@ -59,7 +60,7 @@ asking and skips the archive.
 [23:53:18] [INPUT] Archive it to 419-Junior-Cybersecurity-Analyst.tar.xz? [y/N]
 ```
 
-Rerunning a path skips modules that already finished, so an interrupted run
+A second run skips the modules that already finished, so an interrupted one
 picks up where it stopped. Pass `--force` to download them again.
 
 ## Output
