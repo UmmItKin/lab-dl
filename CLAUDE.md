@@ -141,7 +141,12 @@ scraper's own parser owns it, so the flag list can never drift from the code.
   from the constructor rather than each call.
 - The auth cookie is `connect.sid`, an Express session, cached in
   `cookies-thm.txt`. That is a separate file from HTB's `cookies.txt`. Both are
-  gitignored secrets, so never print cookie values.
+  gitignored secrets, so never print cookie values. `connect.sid` alone is
+  enough, the same single-cookie model HTB uses; the client never sends `_csrf`.
+- TryHackMe is behind Vercel's bot/rate protection, so scraping too fast returns
+  HTTP 429 with a "Security Checkpoint" HTML page, not JSON. `_get_json` catches
+  429 with a clean message instead of dumping that page. There's no bypass, so
+  don't add a retry loop; the fix is to wait and scrape one room at a time.
 - THM descriptions are standard HTML, unlike HTB's Markdown and HTML hybrid, so
   they go through bs4 and markdownify wholesale. Do not apply that approach to
   HTB; see the conversion rules above for why it destroys HTB's structure.

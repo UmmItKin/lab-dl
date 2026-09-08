@@ -3,8 +3,13 @@
 Single endpoint: GET /api/v2/rooms/tasks?roomCode=<slug>
 Returns the full task list for a room (descriptions + questions).
 
-Auth: cookie-based (connect.sid session + _csrf). The Referer header is
-required (same pattern as HTB). All requests are GET with no body.
+Auth: cookie-based, the connect.sid session only (like HTB's single session
+cookie). The Referer header is required (same pattern as HTB). All requests are
+GET with no body.
+
+TryHackMe sits behind Vercel's bot/rate protection: hammering it returns HTTP
+429 with a "Security Checkpoint" HTML page instead of JSON. There's no
+programmatic bypass; wait a few minutes and scrape one room at a time.
 """
 
 from __future__ import annotations
@@ -61,7 +66,13 @@ class THMClient:
             raise THMAuthError(
                 f"THM rejected the request (HTTP {resp.status_code}). "
                 "Your cookie is likely missing or expired — re-grab "
-                "connect.sid (and _csrf) from your browser."
+                "connect.sid from your browser."
+            )
+        if resp.status_code == 429:
+            raise THMAPIError(
+                "THM rate-limited the request (HTTP 429). TryHackMe is behind "
+                "Vercel's bot/rate checkpoint; wait a few minutes and re-run, "
+                "and scrape one room at a time."
             )
         if resp.is_redirect and "login" in resp.headers.get("Location", "").lower():
             raise THMAuthError(
