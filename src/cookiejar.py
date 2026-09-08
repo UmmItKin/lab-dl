@@ -99,6 +99,7 @@ def grab_cookie(
     domain: str,
     label: str = "the site",
     login_url: str = "",
+    all_cookies: bool = False,
 ) -> str:
     """Scan local Firefox-based browser profiles and return the
     `<cookie_name>=<value>` header string for the given domain.
@@ -137,10 +138,14 @@ def grab_cookie(
         except Exception as e:  # profile locked / corrupt / unreadable
             last_error = e
             continue
-        for c in cj:
-            if c.name == cookie_name:
-                say(f"  ✓ found {cookie_name} in {_profile_label(db)}")
-                return f"{cookie_name}={c.value}"
+        match = next((c for c in cj if c.name == cookie_name), None)
+        if match:
+            say(f"  ✓ found {cookie_name} in {_profile_label(db)}")
+            if all_cookies:
+                # Replay the whole jar so the request carries Vercel's bot-check
+                # clearance the browser already earned, not just the session.
+                return "; ".join(f"{c.name}={c.value}" for c in cj)
+            return f"{cookie_name}={match.value}"
 
     login_hint = f"Make sure you're logged in to {login_url} in your " if login_url else ""
     raise SystemExit(
@@ -162,12 +167,15 @@ def grab_htb_cookie() -> str:
 
 
 def grab_thm_cookie() -> str:
-    """Convenience wrapper for TryHackMe (`connect.sid`, an Express session)."""
+    """Convenience wrapper for TryHackMe. connect.sid is the session, but we
+    replay the whole tryhackme.com jar so the request also carries Vercel's
+    bot-check clearance and doesn't trip the 429 checkpoint."""
     return grab_cookie(
         cookie_name="connect.sid",
         domain="tryhackme.com",
         label="TryHackMe",
         login_url="https://tryhackme.com",
+        all_cookies=True,
     )
 
 

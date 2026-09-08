@@ -103,10 +103,11 @@ sleep.
   Academy UI first.
 - A few images only resolve on HTB's CDN. The downloader retries there
   automatically; re-run if any fail.
-- TryHackMe sits behind Vercel's bot and rate protection. Scraping rooms too
-  fast returns HTTP 429 with a "Security Checkpoint" page instead of the room
-  data. There's no way around it: wait a few minutes and grab one room at a
-  time.
+- TryHackMe sits behind Vercel's bot and rate protection. The scraper replays
+  your browser's TryHackMe cookies, which usually carry the checkpoint clearance
+  so requests go through. If you still get HTTP 429 with a "Security Checkpoint"
+  page, that clearance lapsed: open a room in the browser once, re-run with
+  `--reload-cookie`, and grab one room at a time.
 - `CLAUDE.md` documents the API layout and conventions in detail.
 
 ## Disclaimer

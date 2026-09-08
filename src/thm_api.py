@@ -3,13 +3,16 @@
 Single endpoint: GET /api/v2/rooms/tasks?roomCode=<slug>
 Returns the full task list for a room (descriptions + questions).
 
-Auth: cookie-based, the connect.sid session only (like HTB's single session
-cookie). The Referer header is required (same pattern as HTB). All requests are
-GET with no body.
+Auth: cookie-based. connect.sid is the session that authenticates; the scraper
+replays the whole tryhackme.com cookie jar from the browser so the request also
+carries Vercel's bot-check clearance. Referer is required (same as HTB); every
+request is GET with no body.
 
-TryHackMe sits behind Vercel's bot/rate protection: hammering it returns HTTP
-429 with a "Security Checkpoint" HTML page instead of JSON. There's no
-programmatic bypass; wait a few minutes and scrape one room at a time.
+Vercel fronts TryHackMe with bot/rate protection: a request without valid
+clearance returns HTTP 429 with a "Security Checkpoint" page instead of JSON.
+Replaying the browser cookies usually clears it. If 429 persists the clearance
+lapsed, so open a room in the browser, re-run with --reload-cookie, and scrape
+one room at a time.
 """
 
 from __future__ import annotations
