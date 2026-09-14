@@ -139,17 +139,17 @@ scraper's own parser owns it, so the flag list can never drift from the code.
   `/api/v2/rooms/tasks`. Referer must point at `/room/<slug>`, the same
   requirement HTB has. `THMClient` is bound to one room, so the room code comes
   from the constructor rather than each call.
-- `connect.sid` (an Express session) authenticates. Unlike HTB, which sends one
-  cookie, `grab_thm_cookie` replays the whole `tryhackme.com` jar via
-  `grab_cookie(all_cookies=True)`, because Vercel's bot check wants the
-  clearance cookie the browser already earned. Cached in `cookies-thm.txt`, a
-  separate file from HTB's `cookies.txt`; both gitignored, never print values.
-- TryHackMe is behind Vercel's bot/rate protection: a request without valid
-  clearance returns HTTP 429 with a "Security Checkpoint" HTML page, not JSON.
-  Replaying the full cookie jar (above) usually avoids it; `_get_json` still
-  catches a hard 429 with a clean message instead of dumping the page. Don't add
-  a retry loop, it can't solve the challenge. If 429 persists the clearance
-  lapsed, so re-grab with `--reload-cookie` and scrape one room at a time.
+- The auth cookie is `connect.sid`, an Express session, auto-grabbed from the
+  browser the same single-cookie way HTB grabs `htb_academy_session`. Cached in
+  `cookies-thm.txt`, a separate file from HTB's `cookies.txt`; both gitignored,
+  never print values.
+- TryHackMe now gates the `/api/v2/rooms/*` endpoints behind Vercel BotID, a
+  JavaScript browser-attestation challenge. An HTTP client gets HTTP 429 and a
+  "Security Checkpoint" HTML page instead of JSON, and nothing it can send fixes
+  it: cookies (even the full jar with Vercel's `_vcrcs`), browser-like headers,
+  and `curl_cffi` TLS impersonation were all tested and still 429. `_get_json`
+  catches 429 with a clean message. Don't add a retry loop or a cookie trick,
+  they can't solve a JS challenge; only a real browser passes it.
 - THM descriptions are standard HTML, unlike HTB's Markdown and HTML hybrid, so
   they go through bs4 and markdownify wholesale. Do not apply that approach to
   HTB; see the conversion rules above for why it destroys HTB's structure.

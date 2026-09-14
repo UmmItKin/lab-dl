@@ -103,11 +103,10 @@ sleep.
   Academy UI first.
 - A few images only resolve on HTB's CDN. The downloader retries there
   automatically; re-run if any fail.
-- TryHackMe sits behind Vercel's bot and rate protection. The scraper replays
-  your browser's TryHackMe cookies, which usually carry the checkpoint clearance
-  so requests go through. If you still get HTTP 429 with a "Security Checkpoint"
-  page, that clearance lapsed: open a room in the browser once, re-run with
-  `--reload-cookie`, and grab one room at a time.
+- TryHackMe now puts these room API endpoints behind Vercel's bot challenge
+  (BotID). A plain HTTP request gets HTTP 429 with a "Security Checkpoint" page
+  instead of the room data, and no cookie, header, or TLS trick gets past it,
+  the challenge needs a real browser to run its JavaScript. HTB is unaffected.
 - `CLAUDE.md` documents the API layout and conventions in detail.
 
 ## Disclaimer

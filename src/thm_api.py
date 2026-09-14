@@ -3,16 +3,15 @@
 Single endpoint: GET /api/v2/rooms/tasks?roomCode=<slug>
 Returns the full task list for a room (descriptions + questions).
 
-Auth: cookie-based. connect.sid is the session that authenticates; the scraper
-replays the whole tryhackme.com cookie jar from the browser so the request also
-carries Vercel's bot-check clearance. Referer is required (same as HTB); every
-request is GET with no body.
+Auth: cookie-based, the connect.sid session, auto-grabbed from the browser like
+HTB's single session cookie. Referer is required (same as HTB); every request is
+GET with no body.
 
-Vercel fronts TryHackMe with bot/rate protection: a request without valid
-clearance returns HTTP 429 with a "Security Checkpoint" page instead of JSON.
-Replaying the browser cookies usually clears it. If 429 persists the clearance
-lapsed, so open a room in the browser, re-run with --reload-cookie, and scrape
-one room at a time.
+Heads up: TryHackMe now gates these API endpoints behind Vercel BotID, a
+JavaScript browser-attestation challenge. A plain HTTP request gets HTTP 429 and
+a "Security Checkpoint" HTML page instead of JSON, and nothing an HTTP client can
+send fixes it, cookies, headers, and browser-TLS impersonation were all verified
+to fail. Passing the challenge needs a real browser; retrying does not help.
 """
 
 from __future__ import annotations
@@ -73,9 +72,11 @@ class THMClient:
             )
         if resp.status_code == 429:
             raise THMAPIError(
-                "THM rate-limited the request (HTTP 429). TryHackMe is behind "
-                "Vercel's bot/rate checkpoint; wait a few minutes and re-run, "
-                "and scrape one room at a time."
+                "THM returned HTTP 429 (Vercel \"Security Checkpoint\"). These "
+                "API endpoints are gated behind Vercel BotID, a JavaScript "
+                "browser challenge that an HTTP client can't pass. Cookies, "
+                "headers and TLS impersonation don't help and retrying won't "
+                "either; a real browser is required."
             )
         if resp.is_redirect and "login" in resp.headers.get("Location", "").lower():
             raise THMAuthError(
