@@ -15,8 +15,9 @@ from urllib.parse import urljoin
 import requests
 
 import cookiejar
+import thm_source
 from converter import _collapse_blanks, json_quote, rewrite_images, slugify
-from thm_api import THM_BASE, THMAPIError, THMAuthError, THMClient, THMNotFoundError
+from thm_api import THM_BASE, THMAPIError, THMAuthError, THMNotFoundError
 from ui import say, table as ui_table
 
 
@@ -172,12 +173,9 @@ def run(args: argparse.Namespace) -> int:
     if m:
         room_code = m.group(1)
 
-    client = THMClient(cookie=cookie, room_code=room_code, timeout=args.timeout)
-
     say(f"→ Fetching room {room_code!r}…")
     try:
-        room_info = client.get_room_info()
-        tasks = client.get_room_tasks()
+        room_info, tasks = thm_source.fetch_room(room_code, cookie, args.timeout)
     except THMAuthError as e:
         # A cached cookies-thm.txt only reveals itself as stale here. Re-grab
         # from the browser once and retry, unless the user passed --cookie.
@@ -190,9 +188,7 @@ def run(args: argparse.Namespace) -> int:
             cookiejar.save_to_cookie_file(
                 cookie, Path(args.cookie_file or "cookies-thm.txt")
             )
-            client = THMClient(cookie=cookie, room_code=room_code, timeout=args.timeout)
-            room_info = client.get_room_info()
-            tasks = client.get_room_tasks()
+            room_info, tasks = thm_source.fetch_room(room_code, cookie, args.timeout)
         except THMAuthError as e2:
             say(f"  auth error: {e2}", file=sys.stderr)
             return 2
@@ -200,13 +196,8 @@ def run(args: argparse.Namespace) -> int:
         say(f"  not found: {e}", file=sys.stderr)
         return 3
     except THMAPIError as e:
-        # 429 is Vercel BotID, not a real API error: only a browser clears it.
-        if "429" not in str(e):
-            say(f"  API error: {e}", file=sys.stderr)
-            return 1
-        say("• API blocked by Vercel BotID (HTTP 429); falling back to a browser.")
-        import thm_browser
-        room_info, tasks = thm_browser.fetch_room(room_code, cookie, args.timeout)
+        say(f"  API error: {e}", file=sys.stderr)
+        return 1
 
     title = room_info.get("title", room_code)
     ui_table(

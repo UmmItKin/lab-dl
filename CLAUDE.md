@@ -21,6 +21,7 @@ src/
   htb_api.py     # HTBClient: endpoints, headers, {"data":…} unwrapping, auth errors
   thm_api.py     # THMClient: room details + tasks
   thm_browser.py # patchright fallback: clears Vercel BotID in a real browser
+  thm_source.py  # room-source seam: API first, browser on 429, one interface
   ui.py          # say(): sqlmap-style [time] [LEVEL] output, plus table/track/rule/banner
   converter.py   # content cleanup, HTML-fragment→Markdown, image download
   cookiejar.py   # read a session cookie from a Firefox-based browser profile
@@ -148,12 +149,15 @@ scraper's own parser owns it, so the flag list can never drift from the code.
   JavaScript browser-attestation challenge. Every HTTP client gets HTTP 429 and
   a "Security Checkpoint" page: cookies (even the full jar with `_vcrcs`),
   browser-like headers, and `curl_cffi` TLS impersonation were all tested and
-  still 429. So `run()` tries the API first and, on a 429, falls back to
-  `thm_browser.fetch_room`. That drives patched Chromium (`patchright`) to load
-  the room page, waits for the checkpoint to clear, then runs `fetch()` for both
-  endpoints from inside the page so they carry the live clearance. `page.request`
-  does not, it 429s; the in-page `fetch` is the point. `thm_browser` is imported
-  lazily so `patchright` stays optional, the same pattern as `cookiejar`.
+  still 429. `thm_source.fetch_room` is the single seam for getting a room: it
+  tries the API and, on a 429, falls back to `thm_browser`. `run()` calls it
+  once and never sees the transport choice; only `THMAuthError` and
+  `THMNotFoundError` cross back out, so its exit codes 2/3 are unchanged. The
+  browser drives patched Chromium (`patchright`) to load the room page, waits
+  for the checkpoint to clear, then runs `fetch()` for both endpoints from
+  inside the page so they carry the live clearance. `page.request` does not, it
+  429s; the in-page `fetch` is the point. `thm_browser` is imported lazily by
+  `thm_source` so `patchright` stays optional, the same pattern as `cookiejar`.
 - The browser fallback is headed (`headless=False`); headless Chromium and
   Playwright's own Firefox were both detected and stayed on the checkpoint. It
   needs a display, so a headless box has to wrap the command in `xvfb-run`. The

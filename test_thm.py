@@ -48,6 +48,55 @@ def test_room_md_has_frontmatter_and_tasks():
     assert "## Task 1: Intro" in md and "hi" in md, md
 
 
+def test_room_pipeline_real_shape_to_markdown():
+    """End to end over the conversion pipeline: the (details, tasks) a source
+    returns, straight through build_room_md, on a realistic THM shape."""
+    details = {"title": "SQL Injection", "difficulty": "easy", "type": "walkthrough",
+               "creators": [{"username": "tryhackme"}], "description": "Learn SQLi."}
+    tasks = [
+        {"taskNo": 1, "title": "Intro", "description": "<p>Welcome</p>", "questions": []},
+        {"taskNo": 2, "title": "What is SQLi", "description": "<p>Body</p>",
+         "questions": [{"question": "<p>Which port?</p>", "hint": "",
+                        "progress": {"submission": "3306",
+                                     "answerDescription": "Answer format: ****"}}]},
+    ]
+    md = build_room_md("sqli", tasks, details)
+    assert 'title: "SQL Injection"' in md and 'difficulty: "easy"' in md, md[:120]
+    assert "## Task 1: Intro" in md and "## Task 2: What is SQLi" in md, md
+    assert "### Questions" in md and "1. Which port?" in md, md
+    assert "_Your answer:_ `3306`" in md and "_Answer format:_ Answer format: ****" in md, md
+
+
+def test_room_source_falls_back_to_browser_on_429():
+    """fetch_room swaps API for the browser only when the API 429s (BotID)."""
+    import sys as _sys
+    import types
+    import thm_api
+    import thm_source
+
+    class FakeClient:
+        def __init__(self, **kw):
+            pass
+
+        def get_room_info(self):
+            raise thm_api.THMAPIError("HTTP 429 Security Checkpoint")
+
+        def get_room_tasks(self):
+            return []
+
+    fake_browser = types.ModuleType("thm_browser")
+    fake_browser.fetch_room = lambda room, cookie, timeout=30: ({"title": "Browser"}, [{"taskNo": 1}])
+    _sys.modules["thm_browser"] = fake_browser
+    orig = thm_source.THMClient
+    thm_source.THMClient = FakeClient
+    try:
+        details, tasks = thm_source.fetch_room("x", "connect.sid=y")
+    finally:
+        thm_source.THMClient = orig
+        del _sys.modules["thm_browser"]
+    assert details == {"title": "Browser"} and tasks == [{"taskNo": 1}], (details, tasks)
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_"):
