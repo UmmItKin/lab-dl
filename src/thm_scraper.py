@@ -200,8 +200,13 @@ def run(args: argparse.Namespace) -> int:
         say(f"  not found: {e}", file=sys.stderr)
         return 3
     except THMAPIError as e:
-        say(f"  API error: {e}", file=sys.stderr)
-        return 1
+        # 429 is Vercel BotID, not a real API error: only a browser clears it.
+        if "429" not in str(e):
+            say(f"  API error: {e}", file=sys.stderr)
+            return 1
+        say("• API blocked by Vercel BotID (HTTP 429); falling back to a browser.")
+        import thm_browser
+        room_info, tasks = thm_browser.fetch_room(room_code, cookie, args.timeout)
 
     title = room_info.get("title", room_code)
     ui_table(

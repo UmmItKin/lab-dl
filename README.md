@@ -103,10 +103,12 @@ sleep.
   Academy UI first.
 - A few images only resolve on HTB's CDN. The downloader retries there
   automatically; re-run if any fail.
-- TryHackMe now puts these room API endpoints behind Vercel's bot challenge
-  (BotID). A plain HTTP request gets HTTP 429 with a "Security Checkpoint" page
-  instead of the room data, and no cookie, header, or TLS trick gets past it,
-  the challenge needs a real browser to run its JavaScript. HTB is unaffected.
+- TryHackMe puts its room API behind Vercel's bot challenge (BotID), which no
+  plain HTTP request can pass. So the THM scraper falls back to a real browser
+  (patched Chromium via `patchright`) that loads the page, clears the check, and
+  reads the data. One-time setup: `uv run patchright install chromium`. It opens
+  a browser window, so on a headless box run it under `xvfb-run`. HTB is
+  unaffected and still fetches directly.
 - `CLAUDE.md` documents the API layout and conventions in detail.
 
 ## Disclaimer

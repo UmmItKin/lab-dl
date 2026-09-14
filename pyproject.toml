@@ -9,6 +9,7 @@ dependencies = [
     "beautifulsoup4>=4.12.0",    # THM only; HTB uses converter.py instead
     "markdownify>=0.13.0",
     "rich>=15.0.0",
+    "patchright>=1.60.1",
 ]
 
 [tool.uv]

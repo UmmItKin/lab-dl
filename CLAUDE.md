@@ -20,6 +20,7 @@ src/
   thm_scraper.py # THM orchestration
   htb_api.py     # HTBClient: endpoints, headers, {"data":…} unwrapping, auth errors
   thm_api.py     # THMClient: room details + tasks
+  thm_browser.py # patchright fallback: clears Vercel BotID in a real browser
   ui.py          # say(): sqlmap-style [time] [LEVEL] output, plus table/track/rule/banner
   converter.py   # content cleanup, HTML-fragment→Markdown, image download
   cookiejar.py   # read a session cookie from a Firefox-based browser profile
@@ -143,13 +144,21 @@ scraper's own parser owns it, so the flag list can never drift from the code.
   browser the same single-cookie way HTB grabs `htb_academy_session`. Cached in
   `cookies-thm.txt`, a separate file from HTB's `cookies.txt`; both gitignored,
   never print values.
-- TryHackMe now gates the `/api/v2/rooms/*` endpoints behind Vercel BotID, a
-  JavaScript browser-attestation challenge. An HTTP client gets HTTP 429 and a
-  "Security Checkpoint" HTML page instead of JSON, and nothing it can send fixes
-  it: cookies (even the full jar with Vercel's `_vcrcs`), browser-like headers,
-  and `curl_cffi` TLS impersonation were all tested and still 429. `_get_json`
-  catches 429 with a clean message. Don't add a retry loop or a cookie trick,
-  they can't solve a JS challenge; only a real browser passes it.
+- TryHackMe gates the `/api/v2/rooms/*` endpoints behind Vercel BotID, a
+  JavaScript browser-attestation challenge. Every HTTP client gets HTTP 429 and
+  a "Security Checkpoint" page: cookies (even the full jar with `_vcrcs`),
+  browser-like headers, and `curl_cffi` TLS impersonation were all tested and
+  still 429. So `run()` tries the API first and, on a 429, falls back to
+  `thm_browser.fetch_room`. That drives patched Chromium (`patchright`) to load
+  the room page, waits for the checkpoint to clear, then runs `fetch()` for both
+  endpoints from inside the page so they carry the live clearance. `page.request`
+  does not, it 429s; the in-page `fetch` is the point. `thm_browser` is imported
+  lazily so `patchright` stays optional, the same pattern as `cookiejar`.
+- The browser fallback is headed (`headless=False`); headless Chromium and
+  Playwright's own Firefox were both detected and stayed on the checkpoint. It
+  needs a display, so a headless box has to wrap the command in `xvfb-run`. The
+  Chromium profile lives in `~/.cache/lab-dl/thm-chromium` so the cleared state
+  persists between runs. Requires a one-time `uv run patchright install chromium`.
 - THM descriptions are standard HTML, unlike HTB's Markdown and HTML hybrid, so
   they go through bs4 and markdownify wholesale. Do not apply that approach to
   HTB; see the conversion rules above for why it destroys HTB's structure.
