@@ -26,6 +26,19 @@ def _connect_sid(cookie_header: str) -> str:
     return ""
 
 
+def _live_connect_sid(fallback_header: str) -> str:
+    """Prefer the browser's current connect.sid so the fetch runs as the
+    logged-in user (answers and progress included), not a possibly-stale cached
+    cookie that would come back anonymous. Fall back to what the caller passed
+    when there's no browser session to grab."""
+    try:
+        import cookiejar
+        header = cookiejar.grab_thm_cookie()
+    except SystemExit:
+        header = fallback_header
+    return _connect_sid(header)
+
+
 def fetch_room(room_code: str, cookie_header: str, timeout: int = 60) -> tuple[dict, list]:
     """Return (details, tasks) for a room, unwrapped from the API envelope."""
     try:
@@ -36,7 +49,7 @@ def fetch_room(room_code: str, cookie_header: str, timeout: int = 60) -> tuple[d
             "  uv add patchright && uv run patchright install chromium"
         )
 
-    sid = _connect_sid(cookie_header)
+    sid = _live_connect_sid(cookie_header)
     _UDD.mkdir(parents=True, exist_ok=True)
 
     with sync_playwright() as p:

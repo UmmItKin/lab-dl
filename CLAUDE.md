@@ -158,6 +158,10 @@ scraper's own parser owns it, so the flag list can never drift from the code.
   inside the page so they carry the live clearance. `page.request` does not, it
   429s; the in-page `fetch` is the point. `thm_browser` is imported lazily by
   `thm_source` so `patchright` stays optional, the same pattern as `cookiejar`.
+- The browser path grabs the live `connect.sid` from the browser at fetch time
+  (`_live_connect_sid`), not the cached `cookies-thm.txt`. A stale cached cookie
+  still clears BotID but fetches anonymously, so the user's answers and progress
+  go missing; the live grab makes the in-page fetch run as the logged-in user.
 - The browser fallback is headed (`headless=False`); headless Chromium and
   Playwright's own Firefox were both detected and stayed on the checkpoint. It
   needs a display, so a headless box has to wrap the command in `xvfb-run`. The
