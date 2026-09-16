@@ -62,6 +62,10 @@ uv run python -m py_compile src/*.py main.py         # syntax check
 `main.py` only claims `-h/--help` before a platform is named. After that the
 scraper's own parser owns it, so the flag list can never drift from the code.
 
+A `thm` run falls back to a headed browser when Vercel BotID returns 429, so it
+opens a Chromium window and needs a display (wrap in `xvfb-run` on a headless
+box) plus a one-time `uv run patchright install chromium`. See THM specifics.
+
 ## Architecture and layer rules
 
 - `htb_api.py` and `thm_api.py` are the only modules that talk to the network.
