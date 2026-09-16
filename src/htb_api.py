@@ -25,9 +25,7 @@ HTB_BASE = "https://academy.hackthebox.com"
 # Image paths that start with "/content/" are served from the CDN host.
 CDN_BASE = "https://cdn.services-k8s.prod.aws.htb.systems"
 
-USER_AGENT = (
-    "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
-)
+USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
 
 
 class HTBAuthError(RuntimeError):
