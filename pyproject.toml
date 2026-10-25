@@ -4,10 +4,10 @@ version = "0.1.0"
 description = "Download HackTheBox Academy modules and TryHackMe rooms as Markdown for offline study."
 requires-python = ">=3.9"
 dependencies = [
-    "requests>=2.31.0",
-    "browser_cookie3>=0.16.2",   # browser cookie auto-grab
-    "beautifulsoup4>=4.12.0",    # THM only; HTB uses converter.py instead
-    "markdownify>=0.13.0",
+    "requests>=2.32.5",
+    "browser_cookie3>=0.20.1",   # browser cookie auto-grab
+    "beautifulsoup4>=4.15.0",    # THM only; HTB uses converter.py instead
+    "markdownify>=1.2.3",
     "rich>=15.0.0",
     "patchright>=1.60.1",
 ]
